@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { portal_id, label } = body
+    const { portal_id, client_label } = body
 
     if (!portal_id) {
       return NextResponse.json({ error: 'ID du portail requis' }, { status: 400 })
@@ -21,18 +21,32 @@ export async function POST(request: Request) {
     // Generate unique link token
     const token = crypto.randomBytes(16).toString('hex')
 
+    // Verify portal belongs to user
+    const { data: portal } = await supabase
+      .from('portals')
+      .select('id')
+      .eq('id', portal_id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!portal) {
+      return NextResponse.json({ error: 'Portail non trouvé ou accès refusé' }, { status: 404 })
+    }
+
     const { data: link, error } = await supabase
-      .from('sharing_links')
+      .from('portal_access_links')
       .insert({
         portal_id,
-        user_id: user.id,
         token,
-        label: label || null,
+        client_label: client_label || null,
+        reminder_schedule: '["3d","7d"]',
+        reminders_enabled: true,
       })
       .select()
       .single()
 
     if (error) {
+      console.error('Error creating link:', error)
       return NextResponse.json({ error: 'Erreur lors de la création du lien' }, { status: 500 })
     }
 

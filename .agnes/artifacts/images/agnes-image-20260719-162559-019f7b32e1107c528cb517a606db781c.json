@@ -1,0 +1,17 @@
+{
+  "kind": "agnes_image",
+  "mode": "text_to_image",
+  "model": "agnes-image-2.1-flash",
+  "original_prompt": "Génère un mockup du dashboard PortaiLIQ",
+  "enhanced_prompt": "A modern SaaS dashboard UI mockup for a freelancer client portal management platform. The screen shows a clean dashboard with: a sidebar navigation menu on the left with icons and labels, a header with user profile, a main content area displaying a grid of client portal cards with titles like \"Client Onboarding\", \"Document Request\", \"Project Intake\", each card showing submission count badges, status indicators (active, draft, archived), and action buttons. Below the cards is a stats row showing total portals, total submissions, and pending items. The design uses a professional color scheme with white background, light gray borders, blue accent buttons, and subtle card shadows. High-fidelity UI mockup, realistic proportions, no text overlays or branding. 16:9 aspect ratio.",
+  "size": "1024x576",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/04224593b776480890cd83755f9dff3e.png",
+  "local_path": "C:\\Users\\joyda\\Downloads\\PortaiLIQ\\.agnes\\artifacts\\images\\agnes-image-20260719-162559-019f7b32e1107c528cb517a606db781c.png",
+  "metadata_path": "C:\\Users\\joyda\\Downloads\\PortaiLIQ\\.agnes\\artifacts\\images\\agnes-image-20260719-162559-019f7b32e1107c528cb517a606db781c.json",
+  "mime_type": "image/png",
+  "width": 1312,
+  "height": 736,
+  "bytes": 764128,
+  "preview": null,
+  "created_at": "2026-07-19T16:25:59.824664300+00:00"
+}

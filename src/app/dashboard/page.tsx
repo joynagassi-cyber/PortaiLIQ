@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, ExternalLink, Trash2, Edit, Loader2, AlertCircle } from 'lucide-react'
+import { Plus, ExternalLink, Trash2, Edit, Loader2, AlertCircle, Mail, FileText, Users } from 'lucide-react'
 import Link from 'next/link'
 import { PortalList } from './portal-list'
 import { CreatePortalDialog } from './create-portal-dialog'
@@ -17,10 +17,14 @@ export default async function DashboardPage() {
     redirect('/signin')
   }
 
-  // Fetch user's portals
+  // Fetch user's portals with submissions count
   const { data: portals, error: portalsError } = await supabase
     .from('portals')
-    .select('*, items(count)')
+    .select(`
+      *,
+      items:portal_items(*),
+      submissions:submissions(count)
+    `)
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -30,6 +34,11 @@ export default async function DashboardPage() {
     .select('*')
     .eq('id', user.id)
     .single()
+
+  // Calculate statistics
+  const totalPortals = portals?.length || 0
+  const totalItems = portals?.reduce((acc: number, p: any) => acc + (p.items?.length || 0), 0) || 0
+  const totalSubmissions = portals?.reduce((acc: number, p: any) => acc + (p.submissions?.[0]?.count || 0), 0) || 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -62,7 +71,7 @@ export default async function DashboardPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Mes Portails</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Tableau de bord</h1>
             <p className="text-muted-foreground mt-1">
               Gérez vos portails clients et collectez leurs informations
             </p>
@@ -71,29 +80,46 @@ export default async function DashboardPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Portails</CardTitle>
+              <CardTitle className="text-sm font-medium">Portails</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{portals?.length || 0}</div>
+              <div className="text-2xl font-bold">{totalPortals}</div>
               <p className="text-xs text-muted-foreground">
-                {portals?.length || 0}/3 gratuits
+                Actifs
               </p>
             </CardContent>
           </Card>
+          
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Éléments Créés</CardTitle>
+              <CardTitle className="text-sm font-medium">Éléments</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {portals?.reduce((acc: number, p: any) => acc + (p.items_count || 0), 0) || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">Champs dans tous les portails</p>
+              <div className="text-2xl font-bold">{totalItems}</div>
+              <p className="text-xs text-muted-foreground">
+                Champs créés
+              </p>
             </CardContent>
           </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Soumissions</CardTitle>
+              <Mail className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalSubmissions}</div>
+              <p className="text-xs text-muted-foreground">
+                Recevues
+              </p>
+            </CardContent>
+          </Card>
+          
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Plan</CardTitle>
@@ -101,7 +127,7 @@ export default async function DashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">Gratuit</div>
               <p className="text-xs text-muted-foreground">
-                Passez au Pro pour des portails illimités
+                {totalPortals}/3 portails gratuits
               </p>
             </CardContent>
           </Card>

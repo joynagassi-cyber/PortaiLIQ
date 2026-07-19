@@ -1,0 +1,17 @@
+{
+  "kind": "agnes_image",
+  "mode": "text_to_image",
+  "model": "agnes-image-2.1-flash",
+  "original_prompt": "Génère une image professionnelle du projet PortaiLIQ pour le README",
+  "enhanced_prompt": "A professional SaaS product hero illustration for \"PortaiLIQ\" - a freelancer client intake portal platform. The image shows a sleek laptop displaying a modern dashboard with client portal cards, submission forms, and analytics charts. Floating around the laptop are icons representing documents, file uploads, email notifications, and AI processing. The design uses a clean gradient palette of deep blue (#1E3A5F), vibrant teal (#00B4D8), and warm coral (#FF6B6B) accents. Minimalist flat design with subtle shadows, professional startup aesthetic. The composition is balanced, leaving room for text overlay. Background is a soft gradient from white to light blue-gray. No text or logos visible.",
+  "size": "1024x768",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/aad1f1c4346b40f2b681ec39e7234a01.png",
+  "local_path": "C:\\Users\\joyda\\Downloads\\PortaiLIQ\\.agnes\\artifacts\\images\\agnes-image-20260719-162515-019f7b3234c77a639676128defad33e2.png",
+  "metadata_path": "C:\\Users\\joyda\\Downloads\\PortaiLIQ\\.agnes\\artifacts\\images\\agnes-image-20260719-162515-019f7b3234c77a639676128defad33e2.json",
+  "mime_type": "image/png",
+  "width": 1152,
+  "height": 864,
+  "bytes": 983707,
+  "preview": null,
+  "created_at": "2026-07-19T16:25:15.719827200+00:00"
+}
