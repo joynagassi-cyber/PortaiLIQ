@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Agnes cache (research artifacts)
+.agnes/cache/
+
+# Next.js
+.next/
+out/
+
+# Production
+/build
+
+# Misc
+.DS_Store
+*.pem
+
+# Env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Drizzle
+drizzle/
+
+# Supabase temp files
+supabase/.temp/
+
+# Iceberg
+.ice/
+ice-server-storage/
+
+# Turbo
+.turbo
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# R2 / Cloudflare
+.wrangler/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

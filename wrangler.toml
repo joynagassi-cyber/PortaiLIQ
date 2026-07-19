@@ -1,0 +1,13 @@
+import { defineConfig } from "wrangler";
+
+export default defineConfig({
+  regions: ["fra"],
+  observability: {
+    enabled: true,
+  },
+  miniflare: {
+    persist: true,
+  },
+  compatibility_date: "2026-01-01",
+  compatibility_flags: ["nodejs_compat"],
+});
