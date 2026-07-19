@@ -1,0 +1,310 @@
+diff --git a/src/lib/brevo.ts b/src/lib/brevo.ts
+index 201e18e..06e0f95 100644
+--- a/src/lib/brevo.ts
++++ b/src/lib/brevo.ts
+@@ -1,8 +1,25 @@
+-export async function sendBrevoEmail(
+-  to: string,
+-  subject: string,
+-  html: string
+-): Promise<boolean> {
++export interface EmailOptions {
++  to: string
++  toName?: string
++  subject: string
++  htmlContent: string
++}
++
++export interface WelcomeEmailOptions {
++  to: string
++  toName: string
++  portalName: string
++  freelancerName: string
++  portalUrl: string
++}
++
++export interface SubmissionConfirmationOptions {
++  to: string
++  toName: string
++  portalName: string
++}
++
++export async function sendBrevoEmail(options: EmailOptions): Promise<boolean> {
+   try {
+     const apiKey = process.env.BREVO_API_KEY;
+     if (!apiKey) {
+@@ -21,9 +38,12 @@ export async function sendBrevoEmail(
+           name: process.env.BREVO_SENDER_NAME || "IntakeFlow",
+           email: process.env.BREVO_SENDER_EMAIL || "noreply@intakeflow.app",
+         },
+-        to: [{ email: to }],
+-        subject,
+-        htmlContent: html,
++        to: [{ 
++          email: options.to,
++          name: options.toName || undefined,
++        }],
++        subject: options.subject,
++        htmlContent: options.htmlContent,
+       }),
+     });
+ 
+@@ -33,3 +53,100 @@ export async function sendBrevoEmail(
+     return false;
+   }
+ }
++
++export async function sendWelcomeEmail(options: WelcomeEmailOptions): Promise<boolean> {
++  const htmlContent = `
++    <!DOCTYPE html>
++    <html>
++    <head>
++      <meta charset="utf-8">
++      <title>Bienvenue sur ${options.portalName}</title>
++    </head>
++    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
++      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
++        <h1 style="color: white; margin: 0; font-size: 24px;">Bienvenue !</h1>
++      </div>
++      
++      <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
++        <p>Bonjour ${options.toName},</p>
++        
++        <p>${options.freelancerName} vous invite à compléter le portail <strong>${options.portalName}</strong>.</p>
++        
++        <div style="text-align: center; margin: 30px 0;">
++          <a href="${options.portalUrl}" 
++             style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
++                    color: white; 
++                    padding: 12px 24px; 
++                    text-decoration: none; 
++                    border-radius: 6px; 
++                    font-weight: bold;
++                    display: inline-block;">
++            Accéder au portail
++          </a>
++        </div>
++        
++        <p>Ce lien vous permettra de :</p>
++        <ul>
++          <li>Voir les informations demandées</li>
++          <li>Télécharger les fichiers nécessaires</li>
++          <li>Compléter le formulaire en toute sécurité</li>
++        </ul>
++        
++        <p style="font-size: 14px; color: #666; margin-top: 30px;">
++          Si vous avez des questions, n'hésitez pas à contacter ${options.freelancerName}.
++        </p>
++      </div>
++    </body>
++    </html>
++  `;
++
++  return sendBrevoEmail({
++    to: options.to,
++    toName: options.toName,
++    subject: `Bienvenue sur le portail ${options.portalName}`,
++    htmlContent: htmlContent,
++  });
++}
++
++export async function sendSubmissionConfirmation(options: SubmissionConfirmationOptions): Promise<boolean> {
++  const htmlContent = `
++    <!DOCTYPE html>
++    <html>
++    <head>
++      <meta charset="utf-8">
++      <title>Confirmation de soumission</title>
++    </head>
++    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
++      <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
++        <h1 style="color: white; margin: 0; font-size: 24px;">✓ Soumission confirmée</h1>
++      </div>
++      
++      <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
++        <p>Merci ${options.toName} !</p>
++        
++        <p>Votre soumission pour le portail <strong>${options.portalName}</strong> a été enregistrée avec succès.</p>
++        
++        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
++          <h3 style="margin-top: 0; color: #28a745;">✅ Ce qui se passe ensuite :</h3>
++          <ul style="margin-bottom: 0;">
++            <li>Le freelance va examiner vos informations</li>
++            <li>Vous serez contacté(e) si des précisions sont nécessaires</li>
++            <li>Vous pourrez suivre l'avancement sur le portail</li>
++          </ul>
++        </div>
++        
++        <p style="font-size: 14px; color: #666;">
++          Vous pouvez consulter le statut de votre soumission à tout moment en vous rendant sur le portail.
++        </p>
++      </div>
++    </body>
++    </html>
++  `;
++
++  return sendBrevoEmail({
++    to: options.to,
++    toName: options.toName,
++    subject: `Confirmation de soumission - ${options.portalName}`,
++    htmlContent: htmlContent,
++  });
++}
+diff --git a/src/lib/cache.ts b/src/lib/cache.ts
+new file mode 100644
+index 0000000..309c9cf
+--- /dev/null
++++ b/src/lib/cache.ts
+@@ -0,0 +1,79 @@
++import { kv } from '@vercel/kv'
++import { redis } from '@/lib/supabase'
++
++// Cache utility for Vercel KV / Redis
++export class CacheService {
++  private static TTL_PORTAL = 300 // 5 minutes
++  private static TTL_SUBMISSION = 600 // 10 minutes
++  private static TTL_AI = 3600 // 1 hour
++
++  // Portal cache
++  static async getPortal(token: string) {
++    const cached = await kv.get(`portal:${token}`)
++    if (cached) return cached
++    return null
++  }
++
++  static async setPortal(token: string, data: any) {
++    await kv.setex(`portal:${token}`, this.TTL_PORTAL, JSON.stringify(data))
++  }
++
++  static async invalidatePortal(token: string) {
++    await kv.del(`portal:${token}`)
++  }
++
++  // Submission cache
++  static async getSubmissions(portalId: string) {
++    const cached = await kv.get(`submissions:${portalId}`)
++    if (cached) return cached
++    return null
++  }
++
++  static async setSubmissions(portalId: string, data: any) {
++    await kv.setex(`submissions:${portalId}`, this.TTL_SUBMISSION, JSON.stringify(data))
++  }
++
++  static async invalidateSubmissions(portalId: string) {
++    await kv.del(`submissions:${portalId}`)
++  }
++
++  // AI results cache
++  static async getAiResult(submissionId: string) {
++    const cached = await kv.get(`ai:result:${submissionId}`)
++    if (cached) return cached
++    return null
++  }
++
++  static async setAiResult(submissionId: string, data: any) {
++    await kv.setex(`ai:result:${submissionId}`, this.TTL_AI, JSON.stringify(data))
++  }
++
++  // Dashboard stats cache
++  static async getDashboardStats(userId: string) {
++    const cached = await kv.get(`dashboard:${userId}`)
++    if (cached) return cached
++    return null
++  }
++
++  static async setDashboardStats(userId: string, data: any) {
++    await kv.setex(`dashboard:${userId}`, 300, JSON.stringify(data)) // 5 min
++  }
++
++  static async invalidateDashboard(userId: string) {
++    await kv.del(`dashboard:${userId}`)
++  }
++
++  // Rate limiting
++  static async incrementRateLimit(key: string, limit: number = 100, window: number = 3600) {
++    const count = await kv.incr(`rate:${key}`)
++    if (count === 1) {
++      await kv.expire(`rate:${key}`, window)
++    }
++    return count > limit
++  }
++
++  static async checkRateLimit(key: string, limit: number = 100, window: number = 3600) {
++    const count = await kv.get(`rate:${key}`)
++    return (count as number || 0) >= limit
++  }
++}
+diff --git a/src/middleware-rate-limit.ts b/src/middleware-rate-limit.ts
+new file mode 100644
+index 0000000..73a657e
+--- /dev/null
++++ b/src/middleware-rate-limit.ts
+@@ -0,0 +1,67 @@
++import { NextResponse } from 'next/server'
++import type { NextRequest } from 'next/server'
++import { kv } from '@vercel/kv'
++
++// Rate limiting configuration
++const RATE_LIMITS: Record<string, { max: number; window: number }> = {
++  '/api/submissions': { max: 50, window: 3600 }, // 50 submissions per hour
++  '/api/upload': { max: 100, window: 3600 }, // 100 uploads per hour
++  '/api/portal/[token]': { max: 200, window: 3600 }, // 200 requests per hour
++  '/api/ai': { max: 30, window: 3600 }, // 30 AI calls per hour
++  'default': { max: 1000, window: 3600 }, // 1000 requests per hour
++}
++
++export async function middleware(request: NextRequest) {
++  const { pathname } = request.nextUrl
++  
++  // Skip rate limiting for health checks and static files
++  if (pathname.startsWith('/_next') || pathname.startsWith('/api/health')) {
++    return NextResponse.next()
++  }
++
++  // Get client IP
++  const ip = request.headers.get('x-forwarded-for') || 
++             request.headers.get('x-real-ip') || 
++             'unknown'
++  
++  const rateKey = `rate:${ip}:${pathname}`
++  
++  // Find matching rate limit config
++  let config = RATE_LIMITS['default']
++  for (const [pattern, limit] of Object.entries(RATE_LIMITS)) {
++    if (pathname.startsWith(pattern)) {
++      config = limit
++      break
++    }
++  }
++
++  // Check rate limit
++  const count = await kv.incr(rateKey)
++  if (count === 1) {
++    await kv.expire(rateKey, config.window)
++  }
++
++  const response = NextResponse.next()
++  
++  // Add rate limit headers
++  response.headers.set('X-RateLimit-Limit', config.max.toString())
++  response.headers.set('X-RateLimit-Remaining', Math.max(0, config.max - count).toString())
++  response.headers.set('X-RateLimit-Reset', String(Date.now() / 1000 + config.window))
++
++  // Return 429 if limit exceeded
++  if (count > config.max) {
++    return new NextResponse(
++      JSON.stringify({ error: 'Too many requests. Please try again later.' }),
++      { 
++        status: 429,
++        headers: { 'Content-Type': 'application/json' }
++      }
++    )
++  }
++
++  return response
++}
++
++export const config = {
++  matcher: ['/api/:path*'],
++}

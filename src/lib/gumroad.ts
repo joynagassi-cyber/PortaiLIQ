@@ -12,6 +12,7 @@ import { db } from '@/db';
 import { gumroadLicenses } from '@/db/schema';
 import { auth } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
+import { createHmac, constantTimeEqual } from 'crypto';
 
 // Gumroad product tiers mapping
 export const GUMROAD_TIERS = {
@@ -157,14 +158,15 @@ export async function GET(request: Request) {
 export async function handleWebhook(request: Request) {
   try {
     const body = await request.text();
-    const signature = request.headers.get('x-gumroad-signature');
+    const signature = request.headers.get('x-gumroad-signature') || '';
+    const webhookSecret = process.env.GUMROAD_WEBHOOK_SECRET || '';
 
-    // Verify webhook signature
-    if (!signature) {
-      return NextResponse.json(
-        { error: 'Missing signature' },
-        { status: 401 }
-      );
+    // Verify HMAC signature
+    const expected = createHmac('sha256', webhookSecret).update(body).digest('hex');
+    
+    if (!constantTimeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected))) {
+      console.warn('Gumroad webhook signature mismatch');
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
     const event = JSON.parse(body);

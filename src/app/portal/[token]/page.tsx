@@ -128,32 +128,45 @@ export default function PortalPage() {
     setSubmitting(true)
 
     try {
-      // Prepare submissions data
-      const submissions = portalItems.map(item => {
+      // Prepare submissions data — one record per portal item
+      const submissionsData = portalItems.map((item: Item) => {
         const value = formData[item.id]
         if (item.item_type === 'file') {
           return {
             portal_item_id: item.id,
-            file_url: value?.file_url,
-            file_name: value?.file_name,
-            file_size: value?.file_size,
-            file_type: value?.file_type,
+            file_url: value?.file_url || null,
+            file_name: value?.file_name || null,
+            file_size: value?.file_size || null,
+            file_type: value?.file_type || null,
+            content_text: null,
           }
         } else {
           return {
             portal_item_id: item.id,
-            content_text: value,
+            content_text: value || '',
+            file_url: null,
+            file_name: null,
+            file_size: null,
+            file_type: null,
           }
         }
       })
 
-      const res = await fetch('/api/submissions', {
+      const res = await fetch(`/api/submissions?portalToken=${params.token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          portal_token: params.token,
-          link_token: portal.access_link_token,
-          submissions: submissions,
+          answers: submissionsData.reduce((acc: Record<string, any>, sub: any) => {
+            acc[sub.portal_item_id] = sub.content_text || {
+              file_url: sub.file_url,
+              file_name: sub.file_name,
+              file_size: sub.file_size,
+              file_type: sub.file_type,
+            }
+            return acc
+          }, {}),
+          clientName: '',
+          clientEmail: '',
         }),
       })
 

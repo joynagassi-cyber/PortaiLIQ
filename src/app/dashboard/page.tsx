@@ -35,10 +35,14 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single()
 
-  // Calculate statistics
-  const totalPortals = portals?.length || 0
-  const totalItems = portals?.reduce((acc: number, p: any) => acc + (p.items?.length || 0), 0) || 0
-  const totalSubmissions = portals?.reduce((acc: number, p: any) => acc + (p.submissions?.[0]?.count || 0), 0) || 0
+  // Calculate statistics — null-safe
+  const safePortals = portals || []
+  const totalPortals = safePortals.length
+  const totalItems = safePortals.reduce((acc: number, p: any) => acc + ((p.items as any[])?.length || 0), 0)
+  const totalSubmissions = safePortals.reduce((acc: number, p: any) => {
+    const subs = p.submissions as any[]
+    return acc + (subs && subs[0] && subs[0].count ? subs[0].count : 0)
+  }, 0)
 
   return (
     <div className="min-h-screen bg-background">

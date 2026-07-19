@@ -4,6 +4,14 @@ import { put } from '@vercel/blob'
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient()
+    
+    // Auth check
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
+
     const formData = await request.formData()
     const file = formData.get('file') as File
     const itemId = formData.get('item_id') as string
@@ -19,6 +27,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Fichier trop volumineux (max 10MB)' }, { status: 400 })
     }
 
+    // Handle files with empty MIME type
+    const mimeType = file.type || 'application/octet-stream'
+
     // Validate file type
     const allowedTypes = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp',
@@ -30,7 +41,7 @@ export async function POST(request: Request) {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ]
 
-    if (!allowedTypes.includes(file.type)) {
+    if (!allowedTypes.includes(mimeType)) {
       return NextResponse.json({ error: 'Type de fichier non autorisé' }, { status: 400 })
     }
 
@@ -38,17 +49,21 @@ export async function POST(request: Request) {
     let formatWarning = null
     if (expectedFormat) {
       const expectedFormats = expectedFormat.split(',').map(f => f.trim().toUpperCase())
-      const actualFormat = file.type.split('/')[1]?.toUpperCase()
+      const actualFormat = mimeType.split('/')[1]?.toUpperCase()
       
       if (!expectedFormats.some(fmt => actualFormat.includes(fmt.split('.')[1] || fmt))) {
         formatWarning = `Le format attendu était: ${expectedFormat}`
       }
     }
 
+    // Sanitize filename
+    const safeFilename = file.name.replace(/[^\w.\-]/g, '_')
+    const uniqueFilename = `${Date.now()}-${safeFilename}`
+
     // Upload to Vercel Blob Storage
-    const blob = await put(`portaliq/uploads/${Date.now()}-${file.name}`, file, {
+    const blob = await put(`portaliq/uploads/${user.id}/${uniqueFilename}`, file, {
       access: 'public',
-      contentType: file.type,
+      contentType: mimeType,
     })
 
     const response: any = {

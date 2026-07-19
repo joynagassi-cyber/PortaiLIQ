@@ -12,10 +12,7 @@ export async function GET(
     // Fetch portal by token
     const { data: portal, error: portalError } = await supabase
       .from('portals')
-      .select(`
-        *,
-        user:users(display_name)
-      `)
+      .select('*')
       .eq('token', portalToken)
       .eq('status', 'published')
       .single()
@@ -26,6 +23,13 @@ export async function GET(
         { status: 404 }
       )
     }
+
+    // Get freelancer name from profiles table
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', portal.user_id)
+      .single()
 
     // Get portal items
     const { data: items, error: itemsError } = await supabase
@@ -57,7 +61,7 @@ export async function GET(
     // Combine data
     const portalData = {
       ...portal,
-      freelancer_name: portal.user?.display_name || 'Freelance',
+      freelancer_name: profile?.full_name || portal.freelancer_name || 'Freelance',
       items: items || [],
       access_link_tokens: accessLinks?.map((link: any) => link.token) || [],
     }

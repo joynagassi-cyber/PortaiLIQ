@@ -32,7 +32,7 @@ export const updatePortalSchema = z.object({
 export const createItemSchema = z.object({
   label: z.string().min(1).max(200),
   description: z.string().max(500).optional(),
-  itemType: z.enum(["text", "file", "multiple_choice", "date", "number"]),
+  itemType: z.enum(['text', 'file', 'email', 'phone', 'number', 'url', 'date', 'multiple_choice']),
   expectedFormat: z.string().max(50).optional(),
   required: z.boolean().default(true),
   choices: z.array(z.string()).optional(),

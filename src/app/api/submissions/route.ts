@@ -16,23 +16,29 @@ export async function POST(request: Request) {
       )
     }
 
+    const supabase = await createClient()
+    
+    // Verify user is authenticated (for tracking submissions)
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError) {
+      // Public portal submissions don't require auth, but we log client_email
+    }
+    
     const body = await request.json()
-    const { answers, clientName, clientEmail } = body
+    const { answers, clientName, clientEmail, linkToken } = body
 
-    if (!answers || Object.keys(answers).length === 0) {
+    if (!answers || (typeof answers === 'object' && Object.keys(answers).length === 0)) {
       return NextResponse.json(
         { error: 'At least one answer is required' },
         { status: 400 }
       )
     }
 
-    const supabase = await createClient()
-    
     // Get portal by token
     const { data: portal, error: portalError } = await supabase
       .from('portals')
-      .select('id, user_id')
-      .eq('share_token', portalToken)
+      .select('id, user_id, status')
+      .eq('token', portalToken)
       .single()
 
     if (portalError || !portal) {
@@ -42,10 +48,18 @@ export async function POST(request: Request) {
       )
     }
 
+    // Verify portal is published/active
+    if (portal.status !== 'published' && portal.status !== 'active') {
+      return NextResponse.json(
+        { error: 'Portal is not active' },
+        { status: 403 }
+      )
+    }
+
     // Get portal items for validation
     const { data: items, error: itemsError } = await supabase
       .from('portal_items')
-      .select('*')
+      .select('id, label, item_type, required')
       .eq('portal_id', portal.id)
 
     if (itemsError) {
@@ -57,30 +71,60 @@ export async function POST(request: Request) {
 
     // Validate required fields
     const requiredFields = items.filter((item: any) => item.required)
-    const missingRequired = requiredFields.filter((item: any) => !answers[item.id])
+    const missingRequired = requiredFields.filter((item: any) => {
+      const answer = answers[item.id]
+      if (!answer) return true
+      if (typeof answer === 'string' && answer.trim() === '') return true
+      if (typeof answer === 'object' && answer !== null && !answer.file_url) return true
+      return false
+    })
     
     if (missingRequired.length > 0) {
       return NextResponse.json(
         { 
           error: 'Missing required fields',
-          missing: missingRequired.map((item: any) => item.title)
+          missing: missingRequired.map((item: any) => item.label)
         },
         { status: 400 }
       )
     }
 
-    // Create submission
+    // Create submission(s) — one per portal item
+    const submissionsToInsert = items.map((item: any) => {
+      const answer = answers[item.id]
+      const base = {
+        portal_id: portal.id,
+        portal_item_id: item.id,
+        client_name: clientName || null,
+        client_email: clientEmail || null,
+        status: 'submitted' as const,
+      }
+
+      if (item.item_type === 'file') {
+        return {
+          ...base,
+          file_url: typeof answer === 'object' ? answer.file_url : null,
+          file_name: typeof answer === 'object' ? answer.file_name : null,
+          file_size: typeof answer === 'object' ? answer.file_size : null,
+          file_type: typeof answer === 'object' ? answer.file_type : null,
+          content_text: null,
+        }
+      } else {
+        return {
+          ...base,
+          content_text: typeof answer === 'string' ? answer : String(answer),
+          file_url: null,
+          file_name: null,
+          file_size: null,
+          file_type: null,
+        }
+      }
+    })
+
     const { data: submission, error: submissionError } = await supabase
       .from('submissions')
-      .insert({
-        portal_id: portal.id,
-        answers: answers,
-        client_name: clientName,
-        client_email: clientEmail,
-        status: 'submitted'
-      })
+      .insert(submissionsToInsert)
       .select()
-      .single()
 
     if (submissionError) {
       console.error('Submission error:', submissionError)

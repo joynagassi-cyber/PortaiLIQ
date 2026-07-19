@@ -84,11 +84,17 @@ export async function GET(request: Request) {
         sub.client_email || '',
         new Date(sub.created_at).toISOString(),
         sub.status,
-        ...sub.answers.map((answer: any) => {
+        ...(sub.answers || []).map((answer: any) => {
           // Find the corresponding item title
           const answerKey = Object.keys(answer)[0]
-          const item = sub.portal_items.find((i: any) => i.id === answerKey)
-          return answer[answerKey] || ''
+          let cellValue = String(answer[answerKey] || '')
+          
+          // CSV injection protection: escape cells starting with formula characters
+          if (cellValue.match(/^[=\+\-@\t]/)) {
+            cellValue = "'" + cellValue
+          }
+          
+          return cellValue
         })
       ]
       return row

@@ -1,0 +1,774 @@
+diff --git a/src/app/api/cron/reminders/route.ts b/src/app/api/cron/reminders/route.ts
+new file mode 100644
+index 0000000..b31fde1
+--- /dev/null
++++ b/src/app/api/cron/reminders/route.ts
+@@ -0,0 +1,174 @@
++import { createClient } from '@/lib/supabase/server'
++import { NextResponse } from 'next/server'
++import { sendWelcomeEmail } from '@/lib/brevo'
++
++export async function POST(request: Request) {
++  try {
++    const supabase = await createClient()
++    
++    const { data: { user } } = await supabase.auth.getUser()
++    if (!user) {
++      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
++    }
++
++    const body = await request.json()
++    const { portal_id } = body
++
++    if (!portal_id) {
++      return NextResponse.json({ error: 'portal_id est requis' }, { status: 400 })
++    }
++
++    // Verify portal belongs to user
++    const { data: portal } = await supabase
++      .from('portals')
++      .select('id')
++      .eq('id', portal_id)
++      .eq('user_id', user.id)
++      .single()
++
++    if (!portal) {
++      return NextResponse.json({ error: 'Portail non trouvé' }, { status: 404 })
++    }
++
++    // Get all access links for this portal
++    const { data: accessLinks } = await supabase
++      .from('portal_access_links')
++      .select(`
++        id,
++        token,
++        client_label,
++        reminders_enabled,
++        reminder_schedule,
++        created_at
++      `)
++      .eq('portal_id', portal_id)
++
++    if (!accessLinks || accessLinks.length === 0) {
++      return NextResponse.json({ message: 'Aucun lien d\'accès trouvé' })
++    }
++
++    const reminders = []
++
++    for (const link of accessLinks) {
++      if (!link.reminders_enabled) {
++        continue
++      }
++
++      // Parse reminder schedule
++      let schedule: string[] = []
++      try {
++        schedule = JSON.parse(link.reminder_schedule || '["3d","7d"]')
++      } catch {
++        schedule = ['3d', '7d']
++      }
++
++      // Calculate next reminder based on schedule and creation date
++      for (const interval of schedule) {
++        const days = parseInt(interval.replace('d', ''))
++        if (isNaN(days)) continue
++
++        const createdDate = new Date(link.created_at)
++        const nextReminder = new Date(createdDate.getTime() + days * 24 * 60 * 60 * 1000)
++        
++        // If next reminder is in the past and we haven't sent it yet
++        if (nextReminder < new Date()) {
++          // In a real implementation, you would:
++          // 1. Check if reminder was already sent
++          // 2. Send the reminder email
++          // 3. Update the reminder status
++          
++          reminders.push({
++            link_token: link.token,
++            client_label: link.client_label,
++            days: days,
++            next_reminder: nextReminder.toISOString(),
++          })
++        }
++      }
++    }
++
++    return NextResponse.json({ reminders })
++  } catch (error) {
++    console.error('Error calculating reminders:', error)
++    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
++  }
++}
++
++// Cron endpoint for Cloudflare Cron Triggers
++export async function GET(request: Request) {
++  try {
++    const supabase = await createClient()
++    
++    // Get all portals with reminders enabled
++    const { data: portals } = await supabase
++      .from('portals')
++      .select(`
++        id,
++        user_id,
++        access_links:portal_access_links(
++          id,
++          token,
++          client_label,
++          reminders_enabled,
++          reminder_schedule,
++          created_at
++        )
++      `)
++
++    if (!portals) {
++      return NextResponse.json({ message: 'Aucun portail trouvé' })
++    }
++
++    const remindersToSend = []
++
++    for (const portal of portals) {
++      for (const link of portal.access_links || []) {
++        if (!link.reminders_enabled) {
++          continue
++        }
++
++        // Parse reminder schedule
++        let schedule: string[] = []
++        try {
++          schedule = JSON.parse(link.reminder_schedule || '["3d","7d"]')
++        } catch {
++          schedule = ['3d', '7d']
++        }
++
++        // Calculate next reminder based on schedule and creation date
++        for (const interval of schedule) {
++          const days = parseInt(interval.replace('d', ''))
++          if (isNaN(days)) continue
++
++          const createdDate = new Date(link.created_at)
++          const nextReminder = new Date(createdDate.getTime() + days * 24 * 60 * 60 * 1000)
++          
++          // Check if it's time to send reminder
++          const now = new Date()
++          if (nextReminder <= now && nextReminder > new Date(now.getTime() - 24 * 60 * 60 * 1000)) {
++            remindersToSend.push({
++              portal_id: portal.id,
++              user_id: portal.user_id,
++              link_token: link.token,
++              client_label: link.client_label,
++              days: days,
++            })
++          }
++        }
++      }
++    }
++
++    // In a real implementation, you would:
++    // 1. Send emails for each reminder
++    // 2. Update the reminder status in the database
++    // 3. Log the activity
++
++    return NextResponse.json({ 
++      reminders_to_send: remindersToSend,
++      count: remindersToSend.length
++    })
++  } catch (error) {
++    console.error('Error in cron job:', error)
++    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
++  }
++}
+diff --git a/src/app/api/exports/csv/route.ts b/src/app/api/exports/csv/route.ts
+new file mode 100644
+index 0000000..8a4cc0d
+--- /dev/null
++++ b/src/app/api/exports/csv/route.ts
+@@ -0,0 +1,119 @@
++import { NextResponse } from 'next/server'
++import { createClient } from '@/lib/supabase/server'
++import { submissions } from '@/db/schema'
++
++// Generate CSV from submissions data
++export async function GET(request: Request) {
++  try {
++    const { searchParams } = new URL(request.url)
++    const portalId = searchParams.get('portalId')
++    
++    if (!portalId) {
++      return NextResponse.json(
++        { error: 'portalId is required' },
++        { status: 400 }
++      )
++    }
++
++    const supabase = await createClient()
++    
++    // Verify user owns this portal
++    const { data: { user } } = await supabase.auth.getUser()
++    if (!user) {
++      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
++    }
++
++    const { data: portal } = await supabase
++      .from('portals')
++      .select('id')
++      .eq('id', portalId)
++      .eq('user_id', user.id)
++      .single()
++
++    if (!portal) {
++      return NextResponse.json(
++        { error: 'Portal not found or access denied' },
++        { status: 404 }
++      )
++    }
++
++    // Fetch submissions with portal items
++    const { data: submissionsData, error: submissionsError } = await supabase
++      .from('submissions')
++      .select(`
++        *,
++        portal_items!inner (
++          id,
++          title,
++          field_type,
++          required
++        )
++      `)
++      .eq('portal_id', portalId)
++      .order('created_at', { ascending: true })
++
++    if (submissionsError) {
++      console.error('Submissions fetch error:', submissionsError)
++      return NextResponse.json(
++        { error: 'Failed to fetch submissions' },
++        { status: 500 }
++      )
++    }
++
++    if (!submissionsData || submissionsData.length === 0) {
++      return NextResponse.json(
++        { error: 'No submissions found for this portal' },
++        { status: 404 }
++      )
++    }
++
++    // Build CSV
++    const headers = [
++      'Soumission ID',
++      'Client',
++      'Email',
++      'Date',
++      'Statut',
++      ...submissionsData[0].portal_items.map((item: any) => item.title)
++    ]
++
++    const rows = submissionsData.map((sub: any) => {
++      const row = [
++        sub.id,
++        sub.client_name || '',
++        sub.client_email || '',
++        new Date(sub.created_at).toISOString(),
++        sub.status,
++        ...sub.answers.map((answer: any) => {
++          // Find the corresponding item title
++          const answerKey = Object.keys(answer)[0]
++          const item = sub.portal_items.find((i: any) => i.id === answerKey)
++          return answer[answerKey] || ''
++        })
++      ]
++      return row
++    })
++
++    const csvContent = [
++      headers.join(','),
++      ...rows.map(row => 
++        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
++      )
++    ].join('\n')
++
++    const fileName = `portail-${portalId.substring(0, 8)}-exports-${new Date().toISOString().split('T')[0]}.csv`
++
++    return new NextResponse(csvContent, {
++      headers: {
++        'Content-Type': 'text/csv; charset=utf-8',
++        'Content-Disposition': `attachment; filename="${fileName}"`,
++      },
++    })
++  } catch (error) {
++    console.error('CSV Export error:', error)
++    return NextResponse.json(
++      { error: 'Internal server error' },
++      { status: 500 }
++    )
++  }
++}
+diff --git a/src/app/api/notifications/route.ts b/src/app/api/notifications/route.ts
+new file mode 100644
+index 0000000..3a624cf
+--- /dev/null
++++ b/src/app/api/notifications/route.ts
+@@ -0,0 +1,80 @@
++import { createClient } from '@/lib/supabase/server'
++import { NextResponse } from 'next/server'
++import { sendWelcomeEmail, sendSubmissionConfirmation } from '@/lib/brevo'
++
++export async function POST(request: Request) {
++  try {
++    const supabase = await createClient()
++    const body = await request.json()
++    const { type, portal_id, link_token, client_email, client_name } = body
++
++    if (!type || !portal_id || !link_token) {
++      return NextResponse.json(
++        { error: 'Type, portal_id et link_token sont requis' },
++        { status: 400 }
++      )
++    }
++
++    // Get portal details
++    const { data: portal } = await supabase
++      .from('portals')
++      .select(`
++        *,
++        user:users(display_name, email)
++      `)
++      .eq('id', portal_id)
++      .single()
++
++    if (!portal) {
++      return NextResponse.json({ error: 'Portail non trouvé' }, { status: 404 })
++    }
++
++    // Send appropriate email based on type
++    let emailSent = false
++    
++    if (type === 'welcome') {
++      if (!client_email) {
++        return NextResponse.json({ error: 'client_email est requis pour l\'email de bienvenue' }, { status: 400 })
++      }
++
++      const portalUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/portal/${link_token}`
++      
++      emailSent = await sendWelcomeEmail({
++        to: client_email,
++        toName: client_name || 'Client',
++        portalName: portal.name,
++        freelancerName: portal.user.display_name || 'Freelance',
++        portalUrl: portalUrl,
++      })
++    } else if (type === 'submission_confirmation') {
++      emailSent = await sendSubmissionConfirmation({
++        to: client_email,
++        toName: client_name || 'Client',
++        portalName: portal.name,
++      })
++    }
++
++    if (!emailSent) {
++      return NextResponse.json({ error: 'Échec de l\'envoi de l\'email' }, { status: 500 })
++    }
++
++    // Log activity
++    await supabase
++      .from('activity_log')
++      .insert({
++        user_id: portal.user_id,
++        portal_id: portal.id,
++        action: type === 'welcome' ? 'link_sent' : 'submission_received',
++        metadata: {
++          client_email: client_email,
++          link_token: link_token,
++          sent_at: new Date().toISOString()
++        }
++      })
++
++    return NextResponse.json({ success: true })
++  } catch (error) {
++    console.error('Error sending notification:', error)
++    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
++  }
++}
+diff --git a/src/app/api/starter-kits/route.ts b/src/app/api/starter-kits/route.ts
+new file mode 100644
+index 0000000..42477b5
+--- /dev/null
++++ b/src/app/api/starter-kits/route.ts
+@@ -0,0 +1,209 @@
++import { NextResponse } from 'next/server'
++
++// Kits de démarrage par métier
++const STARTER_KITS = {
++  designer: {
++    name: 'Designer',
++    items: [
++      {
++        label: 'Logo haute résolution',
++        description: 'Fichier PNG ou SVG en haute résolution',
++        itemType: 'file' as const,
++        expectedFormat: 'PNG, SVG',
++        required: true,
++      },
++      {
++        label: 'Palette de couleurs',
++        description: 'Codes couleur principaux et secondaires',
++        itemType: 'text' as const,
++        required: true,
++      },
++      {
++        label: 'Polices utilisées',
++        description: 'Noms des polices et liens de téléchargement si possible',
++        itemType: 'text' as const,
++        required: false,
++      },
++      {
++        label: 'Exemples d\'inspirations',
++        description: 'Liens vers des designs que vous aimez',
++        itemType: 'url' as const,
++        required: false,
++      },
++      {
++        label: 'Brief du projet',
++        description: 'Description détaillée de vos besoins et objectifs',
++        itemType: 'textarea' as const,
++        required: true,
++      },
++    ],
++  },
++  developer: {
++    name: 'Développeur',
++    items: [
++      {
++        label: 'Accès au repository',
++        description: 'Lien vers le repo GitHub/GitLab ou accès direct',
++        itemType: 'url' as const,
++        required: true,
++      },
++      {
++        label: 'Documentation technique',
++        description: 'Docs existantes ou spécifications techniques',
++        itemType: 'file' as const,
++        expectedFormat: 'PDF, MD',
++        required: false,
++      },
++      {
++        label: 'Stack technologique',
++        description: 'Technologies et frameworks utilisés',
++        itemType: 'text' as const,
++        required: true,
++      },
++      {
++        label: 'Environnements d\'hébergement',
++        description: 'URLs des environnements dev, staging, production',
++        itemType: 'url' as const,
++        required: false,
++      },
++      {
++        label: 'Critères de succès',
++        description: 'Comment mesurer le succès du projet ?',
++        itemType: 'textarea' as const,
++        required: true,
++      },
++    ],
++  },
++  consultant: {
++    name: 'Consultant',
++    items: [
++      {
++        label: 'Contexte du projet',
++        description: 'Historique et contexte autour de la mission',
++        itemType: 'textarea' as const,
++        required: true,
++      },
++      {
++        label: 'Parties prenantes',
++        description: 'Liste des personnes impliquées et leurs rôles',
++        itemType: 'text' as const,
++        required: true,
++      },
++      {
++        label: 'Budget estimé',
++        description: 'Fourchette budgétaire pour le projet',
++        itemType: 'number' as const,
++        required: false,
++      },
++      {
++        label: 'Calendarisation',
++        description: 'Dates clés et délais attendus',
++        itemType: 'date' as const,
++        required: true,
++      },
++      {
++        label: 'Livrables attendus',
++        description: 'Liste des livrables esperus et leur format',
++        itemType: 'textarea' as const,
++        required: true,
++      },
++    ],
++  },
++  coach: {
++    name: 'Coach',
++    items: [
++      {
++        label: 'Objectifs de coaching',
++        description: 'Ce que vous souhaitez atteindre',
++        itemType: 'textarea' as const,
++        required: true,
++      },
++      {
++        label: 'Disponibilités',
++        description: 'Crneaux horaires qui vous conviennent',
++        itemType: 'text' as const,
++        required: true,
++      },
++      {
++        label: 'Préférences de communication',
++        description: 'Email, téléphone, visio ?',
++        itemType: 'text' as const,
++        required: false,
++      },
++      {
++        label: 'Contexte professionnel',
++        description: 'Votre rôle actuel et environnement de travail',
++        itemType: 'textarea' as const,
++        required: false,
++      },
++      {
++        label: 'Échéance souhaitée',
++        description: 'Date butoir pour atteindre vos objectifs',
++        itemType: 'date' as const,
++        required: false,
++      },
++    ],
++  },
++  photographe: {
++    name: 'Photographe',
++    items: [
++      {
++        label: 'Type de prestation',
++        description: 'Mariage, portrait, événement, produit...',
++        itemType: 'select' as const,
++        choices: ['Mariage', 'Portrait', 'Événement', 'Produit', 'Autre'],
++        required: true,
++      },
++      {
++        label: 'Date de la séance',
++        description: 'Date prévue pour la prestation',
++        itemType: 'date' as const,
++        required: true,
++      },
++      {
++        label: 'Lieu souhaité',
++        description: 'Adresse ou type de lieu pour les photos',
++        itemType: 'text' as const,
++        required: false,
++      },
++      {
++        label: 'Inspirations visuelles',
++        description: 'Liens vers des photos qui vous inspirent',
++        itemType: 'url' as const,
++        required: false,
++      },
++      {
++        label: 'Nombre de photos attendues',
++        description: 'Approximation du nombre de photos livrées',
++        itemType: 'number' as const,
++        required: false,
++      },
++    ],
++  },
++}
++
++export async function GET(request: Request) {
++  try {
++    const { searchParams } = new URL(request.url)
++    const profession = searchParams.get('profession')
++
++    if (profession) {
++      const kit = STARTER_KITS[profession as keyof typeof STARTER_KITS]
++      if (!kit) {
++        return NextResponse.json({ error: 'Métier non trouvé' }, { status: 404 })
++      }
++      return NextResponse.json({ kit })
++    }
++
++    // Return all available professions
++    const professions = Object.keys(STARTER_KITS).map(key => ({
++      value: key,
++      label: STARTER_KITS[key as keyof typeof STARTER_KITS].name,
++    }))
++
++    return NextResponse.json({ professions })
++  } catch (error) {
++    console.error('Error:', error)
++    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
++  }
++}
+diff --git a/src/app/api/templates/route.ts b/src/app/api/templates/route.ts
+new file mode 100644
+index 0000000..0a5056f
+--- /dev/null
++++ b/src/app/api/templates/route.ts
+@@ -0,0 +1,86 @@
++import { createClient } from '@/lib/supabase/server'
++import { NextResponse } from 'next/server'
++import { z } from 'zod'
++
++const templateSchema = z.object({
++  name: z.string().min(1),
++  professionCategory: z.string().optional(),
++})
++
++export async function POST(request: Request) {
++  try {
++    const supabase = await createClient()
++    
++    const { data: { user } } = await supabase.auth.getUser()
++    if (!user) {
++      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
++    }
++
++    const body = await request.json()
++    const validationResult = templateSchema.safeParse(body)
++
++    if (!validationResult.success) {
++      return NextResponse.json(
++        { error: 'Données invalides', details: validationResult.error.errors },
++        { status: 400 }
++      )
++    }
++
++    const { name, professionCategory } = validationResult.data
++
++    const { data: template, error } = await supabase
++      .from('demand_templates')
++      .insert({
++        user_id: user.id,
++        name,
++        profession_category: professionCategory || null,
++      })
++      .select()
++      .single()
++
++    if (error) {
++      console.error('Error creating template:', error)
++      return NextResponse.json({ error: 'Erreur lors de la création du template' }, { status: 500 })
++    }
++
++    return NextResponse.json({ template }, { status: 201 })
++  } catch (error) {
++    console.error('Error:', error)
++    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
++  }
++}
++
++export async function GET(request: Request) {
++  try {
++    const supabase = await createClient()
++    
++    const { data: { user } } = await supabase.auth.getUser()
++    if (!user) {
++      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
++    }
++
++    const { searchParams } = new URL(request.url)
++    const profession = searchParams.get('profession')
++
++    let query = supabase
++      .from('demand_templates')
++      .select('*')
++      .eq('user_id', user.id)
++      .order('created_at', { ascending: false })
++
++    if (profession) {
++      query = query.eq('profession_category', profession)
++    }
++
++    const { data: templates, error } = await query
++
++    if (error) {
++      return NextResponse.json({ error: 'Erreur de requête' }, { status: 500 })
++    }
++
++    return NextResponse.json(templates)
++  } catch (error) {
++    console.error('Error:', error)
++    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
++  }
++}
+diff --git a/src/app/api/upload/route.ts b/src/app/api/upload/route.ts
+new file mode 100644
+index 0000000..4829d92
+--- /dev/null
++++ b/src/app/api/upload/route.ts
+@@ -0,0 +1,70 @@
++import { createClient } from '@/lib/supabase/server'
++import { NextResponse } from 'next/server'
++import { put } from '@vercel/blob'
++
++export async function POST(request: Request) {
++  try {
++    const formData = await request.formData()
++    const file = formData.get('file') as File
++    const itemId = formData.get('item_id') as string
++    const expectedFormat = formData.get('expected_format') as string
++
++    if (!file) {
++      return NextResponse.json({ error: 'Aucun fichier fourni' }, { status: 400 })
++    }
++
++    // Validate file size (max 10MB)
++    const maxSize = 10 * 1024 * 1024 // 10MB
++    if (file.size > maxSize) {
++      return NextResponse.json({ error: 'Fichier trop volumineux (max 10MB)' }, { status: 400 })
++    }
++
++    // Validate file type
++    const allowedTypes = [
++      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
++      'application/pdf',
++      'text/plain', 'text/csv',
++      'application/msword',
++      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
++      'application/vnd.ms-excel',
++      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
++    ]
++
++    if (!allowedTypes.includes(file.type)) {
++      return NextResponse.json({ error: 'Type de fichier non autorisé' }, { status: 400 })
++    }
++
++    // Validate expected format if provided
++    let formatWarning = null
++    if (expectedFormat) {
++      const expectedFormats = expectedFormat.split(',').map(f => f.trim().toUpperCase())
++      const actualFormat = file.type.split('/')[1]?.toUpperCase()
++      
++      if (!expectedFormats.some(fmt => actualFormat.includes(fmt.split('.')[1] || fmt))) {
++        formatWarning = `Le format attendu était: ${expectedFormat}`
++      }
++    }
++
++    // Upload to Vercel Blob Storage
++    const blob = await put(`portaliq/uploads/${Date.now()}-${file.name}`, file, {
++      access: 'public',
++      contentType: file.type,
++    })
++
++    const response: any = {
++      file_url: blob.url,
++      file_name: file.name,
++      file_size: file.size,
++      file_type: file.type,
++    }
++
++    if (formatWarning) {
++      response.warning = formatWarning
++    }
++
++    return NextResponse.json(response)
++  } catch (error) {
++    console.error('Upload error:', error)
++    return NextResponse.json({ error: 'Erreur lors de l\'upload' }, { status: 500 })
++  }
++}

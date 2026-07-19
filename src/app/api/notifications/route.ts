@@ -29,6 +29,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Portail non trouvé' }, { status: 404 })
     }
 
+    // Null-safe access
+    const freelancerName = portal.user?.display_name || 'Freelance'
+    const portalName = portal.name || 'Portail'
+    const userId = portal.user_id || null
+
     // Send appropriate email based on type
     let emailSent = false
     
@@ -37,20 +42,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'client_email est requis pour l\'email de bienvenue' }, { status: 400 })
       }
 
-      const portalUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/portal/${link_token}`
+      const portalUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/portal/${link_token}`
       
       emailSent = await sendWelcomeEmail({
         to: client_email,
         toName: client_name || 'Client',
-        portalName: portal.name,
-        freelancerName: portal.user.display_name || 'Freelance',
-        portalUrl: portalUrl,
+        portalName,
+        freelancerName,
+        portalUrl,
       })
     } else if (type === 'submission_confirmation') {
       emailSent = await sendSubmissionConfirmation({
         to: client_email,
         toName: client_name || 'Client',
-        portalName: portal.name,
+        portalName,
       })
     }
 
@@ -62,7 +67,7 @@ export async function POST(request: Request) {
     await supabase
       .from('activity_log')
       .insert({
-        user_id: portal.user_id,
+        user_id: userId,
         portal_id: portal.id,
         action: type === 'welcome' ? 'link_sent' : 'submission_received',
         metadata: {

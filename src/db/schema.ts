@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 // --- Enums ---
-export const itemTypeEnum = pgEnum("item_type", ["text", "file", "multiple_choice", "date", "number"]);
+export const itemTypeEnum = pgEnum("item_type", ["text", "file", "email", "phone", "number", "url", "date", "multiple_choice"]);
 export const submissionStatusEnum = pgEnum("submission_status", ["pending", "received", "flagged"]);
 export const portalStatusEnum = pgEnum("portal_status", ["active", "archived", "completed"]);
 export const subscriptionEnum = pgEnum("subscription_status", ["free", "founding", "active", "cancelled"]);

@@ -50,10 +50,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Erreur lors de la création du lien' }, { status: 500 })
     }
 
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
     return NextResponse.json({ 
       link: {
         ...link,
-        url: `${process.env.NEXT_PUBLIC_SITE_URL}/portal/${token}`
+        url: `${baseUrl}/portal/${token}`
       }
     })
   } catch (error) {

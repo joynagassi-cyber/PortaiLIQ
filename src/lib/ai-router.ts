@@ -1,8 +1,5 @@
-import { openai } from "@langchain/openai";
-
-// ========================================
-// AI PROVIDER CONFIGURATIONS
-// ========================================
+// AI Router with multi-provider failover
+// Providers: Agnes, Google, Cerebras, Groq
 
 const PROVIDERS = [
   {

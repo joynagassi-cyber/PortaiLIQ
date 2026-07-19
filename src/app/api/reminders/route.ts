@@ -35,15 +35,23 @@ export async function POST(request: Request) {
 
     const portal = accessLink.portal
     
+    // Null-safe access to nested data
+    const freelancerName = portal?.user?.display_name || 'Freelance'
+    const portalName = portal?.name || 'Portail'
+    
     // Send reminder email
-    const portalUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/portal/${link_token}`
+    const portalUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/portal/${link_token}`
+    
+    if (!process.env.NEXT_PUBLIC_SITE_URL) {
+      console.warn('NEXT_PUBLIC_SITE_URL not configured — portal URLs will be broken')
+    }
     
     const emailSent = await sendWelcomeEmail({
       to: client_email,
       toName: client_name || 'Client',
-      portalName: portal.name,
-      freelancerName: portal.user.display_name || 'Freelance',
-      portalUrl: portalUrl,
+      portalName,
+      freelancerName,
+      portalUrl,
     })
 
     if (!emailSent) {
@@ -54,8 +62,8 @@ export async function POST(request: Request) {
     await supabase
       .from('activity_log')
       .insert({
-        user_id: portal.user_id,
-        portal_id: portal.id,
+        user_id: portal?.user_id || null,
+        portal_id: portal?.id || null,
         action: 'reminder_sent',
         metadata: {
           client_email: client_email,

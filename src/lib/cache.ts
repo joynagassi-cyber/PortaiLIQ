@@ -1,5 +1,4 @@
 import { kv } from '@vercel/kv'
-import { redis } from '@/lib/supabase'
 
 // Cache utility for Vercel KV / Redis
 export class CacheService {

@@ -94,9 +94,18 @@ export async function POST(request: Request) {
   }
 }
 
-// Cron endpoint for Cloudflare Cron Triggers
+// Cron endpoint for Cloudflare Cron Triggers — public but requires secret
 export async function GET(request: Request) {
   try {
+    // Verify cron secret (not user auth)
+    const secret = request.headers.get('x-cron-secret')
+    if (secret !== process.env.CRON_SECRET) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
     const supabase = await createClient()
     
     // Get all portals with reminders enabled

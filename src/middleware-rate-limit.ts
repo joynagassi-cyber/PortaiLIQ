@@ -19,9 +19,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Get client IP
-  const ip = request.headers.get('x-forwarded-for') || 
+  // Get client IP — take last valid IP from x-forwarded-for chain
+  const forwarded = request.headers.get('x-forwarded-for')
+  const ip = forwarded ? forwarded.split(',').pop()?.trim() : 
              request.headers.get('x-real-ip') || 
+             request.ip || 
              'unknown'
   
   const rateKey = `rate:${ip}:${pathname}`

@@ -234,6 +234,15 @@ CREATE POLICY "Users can update own client_profiles" ON client_profiles FOR UPDA
 CREATE POLICY "Users can delete own client_profiles" ON client_profiles FOR DELETE USING (user_id = auth.uid());
 
 -- Triggers for updated_at
+-- Create the helper function first
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TRIGGER update_portal_items_updated_at BEFORE UPDATE ON portal_items
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_submissions_updated_at BEFORE UPDATE ON submissions
