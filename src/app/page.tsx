@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Logo } from '@/components/ui/logo'
 import { cn } from '@/lib/utils'
-import { ArrowRight, CheckCircle2, FileText, PenSquare, ShieldCheck, Sparkles, Upload } from 'lucide-react'
+import { ArrowRight, CheckCircle2, ChevronDown, FileText, PenSquare, ShieldCheck, Sparkles, Upload } from 'lucide-react'
 
 const year = new Date().getFullYear()
 
@@ -209,6 +209,27 @@ export default function HomePage() {
         </p>
       </section>
 
+      {/* Social proof — one client, not a grid */}
+      <section className="container mx-auto px-4 py-20">
+        <figure className="mx-auto max-w-3xl text-center">
+          <blockquote>
+            <p
+              className="text-2xl font-semibold leading-snug text-foreground"
+              style={{ textWrap: 'balance' }}
+            >
+              “Clients used to email me loose files. Now everything lands in one
+              portal — structured, on time, and I never have to chase anyone.”
+            </p>
+          </blockquote>
+          <figcaption className="mt-6">
+            <p className="text-sm font-semibold text-foreground">Sarah Moreau</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Freelance brand designer · PortaiLIQ since 2024
+            </p>
+          </figcaption>
+        </figure>
+      </section>
+
       {/* Pricing preview */}
       <section id="pricing" className="container mx-auto scroll-mt-20 px-4 py-20">
         <h2
@@ -312,6 +333,60 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* FAQ — native accordion, no JS */}
+      <section id="faq" className="container mx-auto scroll-mt-20 px-4 py-20">
+        <div className="mx-auto max-w-3xl">
+          <h2
+            className="text-center text-3xl font-bold text-foreground"
+            style={{ textWrap: 'balance' }}
+          >
+            Frequently asked questions
+          </h2>
+          <div className="mt-10 divide-y divide-border rounded-xl border bg-card shadow-sm">
+            <details open className="group px-6 py-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                Is my clients&apos; data safe?
+                <ChevronDown
+                  className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                Yes. Every portal is a private, token-protected link — clients never
+                need an account. Files are encrypted in transit and at rest, and
+                PortaiLIQ is built GDPR-ready.
+              </p>
+            </details>
+            <details className="group px-6 py-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                Is there a free plan?
+                <ChevronDown
+                  className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                No — every plan is paid. Start with Starter at $9/mo and upgrade as
+                you grow; a new tier applies immediately.
+              </p>
+            </details>
+            <details className="group px-6 py-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                Can I cancel anytime?
+                <ChevronDown
+                  className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                Yes. No contracts — your account stays active until the end of the
+                billing period, and your portals and data are preserved.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t py-10">
         <div className="container mx-auto px-4">
@@ -329,6 +404,9 @@ export default function HomePage() {
               </a>
               <a href="#pricing" className="transition-colors hover:text-foreground">
                 Pricing
+              </a>
+              <a href="#faq" className="transition-colors hover:text-foreground">
+                FAQ
               </a>
               <Link href="/signin" className="transition-colors hover:text-foreground">
                 Sign in
