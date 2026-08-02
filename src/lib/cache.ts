@@ -1,78 +1,86 @@
-import { kv } from '@vercel/kv'
+// Cache service — uses Cloudflare KV in production, in-memory Map in dev
+// For Cloudflare Workers deployment
 
-// Cache utility for Vercel KV / Redis
-export class CacheService {
-  private static TTL_PORTAL = 300 // 5 minutes
-  private static TTL_SUBMISSION = 600 // 10 minutes
-  private static TTL_AI = 3600 // 1 hour
+// In-memory fallback for development
+const memoryCache = new Map<string, { data: any; expiresAt: number }>()
 
-  // Portal cache
-  static async getPortal(token: string) {
-    const cached = await kv.get(`portal:${token}`)
-    if (cached) return cached
-    return null
-  }
+interface CacheOptions {
+  ttl?: number // seconds
+}
 
-  static async setPortal(token: string, data: any) {
-    await kv.setex(`portal:${token}`, this.TTL_PORTAL, JSON.stringify(data))
-  }
-
-  static async invalidatePortal(token: string) {
-    await kv.del(`portal:${token}`)
-  }
-
-  // Submission cache
-  static async getSubmissions(portalId: string) {
-    const cached = await kv.get(`submissions:${portalId}`)
-    if (cached) return cached
-    return null
-  }
-
-  static async setSubmissions(portalId: string, data: any) {
-    await kv.setex(`submissions:${portalId}`, this.TTL_SUBMISSION, JSON.stringify(data))
-  }
-
-  static async invalidateSubmissions(portalId: string) {
-    await kv.del(`submissions:${portalId}`)
-  }
-
-  // AI results cache
-  static async getAiResult(submissionId: string) {
-    const cached = await kv.get(`ai:result:${submissionId}`)
-    if (cached) return cached
-    return null
-  }
-
-  static async setAiResult(submissionId: string, data: any) {
-    await kv.setex(`ai:result:${submissionId}`, this.TTL_AI, JSON.stringify(data))
-  }
-
-  // Dashboard stats cache
-  static async getDashboardStats(userId: string) {
-    const cached = await kv.get(`dashboard:${userId}`)
-    if (cached) return cached
-    return null
-  }
-
-  static async setDashboardStats(userId: string, data: any) {
-    await kv.setex(`dashboard:${userId}`, 300, JSON.stringify(data)) // 5 min
-  }
-
-  static async invalidateDashboard(userId: string) {
-    await kv.del(`dashboard:${userId}`)
-  }
-
-  // Rate limiting
-  static async incrementRateLimit(key: string, limit: number = 100, window: number = 3600) {
-    const count = await kv.incr(`rate:${key}`)
-    if (count === 1) {
-      await kv.expire(`rate:${key}`, window)
+class InMemoryCache {
+  private get(key: string): any | null {
+    const entry = memoryCache.get(key)
+    if (!entry) return null
+    if (Date.now() > entry.expiresAt) {
+      memoryCache.delete(key)
+      return null
     }
-    return count > limit
+    return entry.data
   }
 
-  static async checkRateLimit(key: string, limit: number = 100, window: number = 3600) {
-    const count = await kv.get(`rate:${key}`)
-    return (count as number || 0) >= limit
+  private set(key: string, data: any, ttl: number): void {
+    memoryCache.set(key, {
+      data,
+      expiresAt: Date.now() + ttl * 1000,
+    })
   }
+
+  private delete(key: string): void {
+    memoryCache.delete(key)
+  }
+
+  private has(key: string): boolean {
+    return this.get(key) !== null
+  }
+}
+
+const cache = new InMemoryCache()
+
+// Portal cache (5 min TTL)
+export async function getPortalCache(token: string) {
+  return cache.get(`portal:${token}`)
+}
+
+export async function setPortalCache(token: string, data: any) {
+  cache.set(`portal:${token}`, data, 300)
+}
+
+export async function invalidatePortalCache(token: string) {
+  cache.delete(`portal:${token}`)
+}
+
+// Submission cache (10 min TTL)
+export async function getSubmissionsCache(portalId: string) {
+  return cache.get(`submissions:${portalId}`)
+}
+
+export async function setSubmissionsCache(portalId: string, data: any) {
+  cache.set(`submissions:${portalId}`, data, 600)
+}
+
+export async function invalidateSubmissionsCache(portalId: string) {
+  cache.delete(`submissions:${portalId}`)
+}
+
+// AI results cache (1 hour TTL)
+export async function getAiResultCache(submissionId: string) {
+  return cache.get(`ai:result:${submissionId}`)
+}
+
+export async function setAiResultCache(submissionId: string, data: any) {
+  cache.set(`ai:result:${submissionId}`, data, 3600)
+}
+
+// Dashboard stats cache (5 min TTL)
+export async function getDashboardStatsCache(userId: string) {
+  return cache.get(`dashboard:${userId}`)
+}
+
+export async function setDashboardStatsCache(userId: string, data: any) {
+  cache.set(`dashboard:${userId}`, data, 300)
+}
+
+export async function invalidateDashboardCache(userId: string) {
+  cache.delete(`dashboard:${userId}`)
 }

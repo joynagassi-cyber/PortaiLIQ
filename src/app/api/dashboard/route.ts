@@ -4,25 +4,49 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
-    
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch user's stats
-    const [{ data: portals }, { data: submissions }] = await Promise.all([
-      supabase.from('portals').select('id, name, status').eq('user_id', user.id),
-      supabase.from('submissions').select('id, status').eq('portal_id', user.id), // Note: this needs adjustment
-    ])
+    // Fetch portals with item and submission counts
+    const { data: portals, error: portalsError } = await supabase
+      .from('portals')
+      .select(`
+        id, name, status, created_at,
+        items:portal_items(count),
+        submissions:portal_items(submissions(status))
+      `, {
+        count: 'exact',
+      })
+      .eq('user_id', user.id)
+
+    if (portalsError) {
+      console.error('Dashboard fetch error:', portalsError)
+      return NextResponse.json({ error: 'Failed to fetch dashboard data' }, { status: 500 })
+    }
+
+    const safePortals = portals || []
+
+    const totalPortals = safePortals.length
+    const activePortals = safePortals.filter((p: any) => p.status === 'active').length
+    const totalItems = safePortals.reduce(
+      (acc: number, p: any) => acc + (p.items?.[0]?.count || 0), 0
+    )
+    const totalSubmissions = safePortals.reduce((acc: number, p: any) => {
+      const subs = p.submissions?.flatMap((item: any) => item.submissions || []) || []
+      return acc + subs.filter((s: any) => s.status === 'received').length
+    }, 0)
 
     return NextResponse.json({
-      totalPortals: portals?.length || 0,
-      activePortals: portals?.filter(p => p.status === 'published').length || 0,
-      totalSubmissions: submissions?.length || 0,
+      totalPortals,
+      activePortals,
+      totalItems,
+      totalSubmissions,
     })
   } catch (error) {
-    console.error('Error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    console.error('Dashboard error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

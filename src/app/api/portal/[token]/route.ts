@@ -14,21 +14,21 @@ export async function GET(
       .from('portals')
       .select('*')
       .eq('token', portalToken)
-      .eq('status', 'published')
+      .eq('status', 'active')
       .single()
 
     if (portalError || !portal) {
       return NextResponse.json(
-        { error: 'Portail non trouvé ou non publié' },
+        { error: 'Portal not found or not active' },
         { status: 404 }
       )
     }
 
-    // Get freelancer name from profiles table
-    const { data: profile } = await supabase
-      .from('profiles')
+    // Get freelancer name from users table
+    const { data: userProfile } = await supabase
+      .from('users')
       .select('full_name')
-      .eq('id', portal.user_id)
+      .eq('id', portal.userId)
       .single()
 
     // Get portal items
@@ -40,35 +40,20 @@ export async function GET(
 
     if (itemsError) {
       return NextResponse.json(
-        { error: 'Erreur lors du chargement des items' },
+        { error: 'Failed to load items' },
         { status: 500 }
       )
     }
 
-    // Get access links for this portal
-    const { data: accessLinks, error: accessError } = await supabase
-      .from('portal_access_links')
-      .select('token')
-      .eq('portal_id', portal.id)
-
-    if (accessError) {
-      return NextResponse.json(
-        { error: 'Erreur lors du chargement des liens d\'accès' },
-        { status: 500 }
-      )
-    }
-
-    // Combine data
-    const portalData = {
-      ...portal,
-      freelancer_name: profile?.full_name || portal.freelancer_name || 'Freelance',
-      items: items || [],
-      access_link_tokens: accessLinks?.map((link: any) => link.token) || [],
-    }
-
-    return NextResponse.json({ portal: portalData })
+    return NextResponse.json({
+      portal: {
+        ...portal,
+        freelancerName: userProfile?.full_name || 'Freelancer',
+        items: items || [],
+      },
+    })
   } catch (error) {
-    console.error('Error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    console.error('Portal fetch error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

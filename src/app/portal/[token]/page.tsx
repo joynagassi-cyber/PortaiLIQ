@@ -20,6 +20,7 @@ interface Item {
   expected_format: string | null
   required: boolean
   sort_order: number
+  choices?: string[]
 }
 
 interface Portal {
@@ -54,11 +55,11 @@ export default function PortalPage() {
       if (res.ok && data.portal) {
         setPortal(data.portal)
       } else {
-        toast.error(data.error || 'Portail non trouvé')
+        toast.error(data.error || 'Portal not found')
         router.push('/')
       }
     } catch {
-      toast.error('Erreur de chargement')
+      toast.error('Failed to load portal')
       router.push('/')
     } finally {
       setLoading(false)
@@ -71,35 +72,67 @@ export default function PortalPage() {
 
   const handleFileUpload = async (itemId: string, file: File) => {
     setUploadingFiles(prev => ({ ...prev, [itemId]: true }))
-    
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('item_id', itemId)
 
-      const res = await fetch('/api/upload', {
+    try {
+      // Step 1: Get presigned URL
+      const presignRes = await fetch('/api/upload/presign', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          portalItemId: itemId,
+        }),
       })
 
-      const data = await res.json()
+      const presignData = await presignRes.json()
 
-      if (res.ok) {
-        setFormData(prev => ({ 
-          ...prev, 
+      if (!presignRes.ok) {
+        toast.error(presignData.error || 'Failed to get upload URL')
+        return
+      }
+
+      // Step 2: Upload to R2
+      await fetch(presignData.uploadUrl, {
+        method: 'PUT',
+        body: file,
+      })
+
+      // Step 3: Complete upload
+      const completeRes = await fetch('/api/upload/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: presignData.key,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          portalItemId: itemId,
+        }),
+      })
+
+      const completeData = await completeRes.json()
+
+      if (completeRes.ok) {
+        setFormData(prev => ({
+          ...prev,
           [itemId]: {
-            file_url: data.file_url,
+            file_url: completeData.fileUrl,
             file_name: file.name,
             file_size: file.size,
-            file_type: file.type
-          }
+            file_type: file.type,
+          },
         }))
-        toast.success('Fichier uploadé avec succès')
+        if (presignData.warning) {
+          toast.warning(presignData.warning, { duration: 5000 })
+        } else {
+          toast.success('File uploaded!')
+        }
       } else {
-        toast.error(data.error || 'Erreur d\'upload')
+        toast.error(completeData.error || 'Upload failed')
       }
     } catch (error) {
-      toast.error('Erreur lors de l\'upload')
+      toast.error('Upload failed')
     } finally {
       setUploadingFiles(prev => ({ ...prev, [itemId]: false }))
     }
@@ -108,18 +141,13 @@ export default function PortalPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!portal?.access_link_token) {
-      toast.error('Token d\'accès manquant')
-      return
-    }
-
     // Validate required fields
-    const portalItems = portal.items || []
+    const portalItems = portal?.items || []
     for (const item of portalItems) {
       if (item.required) {
         const value = formData[item.id]
         if (!value || (typeof value === 'string' && value.trim() === '')) {
-          toast.error(`Le champ "${item.label}" est obligatoire`)
+          toast.error(`"${item.label}" is required`)
           return
         }
       }
@@ -128,45 +156,12 @@ export default function PortalPage() {
     setSubmitting(true)
 
     try {
-      // Prepare submissions data — one record per portal item
-      const submissionsData = portalItems.map((item: Item) => {
-        const value = formData[item.id]
-        if (item.item_type === 'file') {
-          return {
-            portal_item_id: item.id,
-            file_url: value?.file_url || null,
-            file_name: value?.file_name || null,
-            file_size: value?.file_size || null,
-            file_type: value?.file_type || null,
-            content_text: null,
-          }
-        } else {
-          return {
-            portal_item_id: item.id,
-            content_text: value || '',
-            file_url: null,
-            file_name: null,
-            file_size: null,
-            file_type: null,
-          }
-        }
-      })
-
-      const res = await fetch(`/api/submissions?portalToken=${params.token}`, {
+      const res = await fetch('/api/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          answers: submissionsData.reduce((acc: Record<string, any>, sub: any) => {
-            acc[sub.portal_item_id] = sub.content_text || {
-              file_url: sub.file_url,
-              file_name: sub.file_name,
-              file_size: sub.file_size,
-              file_type: sub.file_type,
-            }
-            return acc
-          }, {}),
-          clientName: '',
-          clientEmail: '',
+          portalToken: params.token,
+          answers: formData,
         }),
       })
 
@@ -174,12 +169,16 @@ export default function PortalPage() {
 
       if (res.ok) {
         setSubmitted(true)
-        toast.success('Formulaire soumis avec succès !')
+        toast.success('Submitted successfully!')
       } else {
-        toast.error(data.error || 'Erreur de soumission')
+        if (data.missing) {
+          toast.error(`Missing: ${data.missing.join(', ')}`)
+        } else {
+          toast.error(data.error || 'Submission failed')
+        }
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error('Network error')
     } finally {
       setSubmitting(false)
     }
@@ -188,7 +187,7 @@ export default function PortalPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
       </div>
     )
   }
@@ -198,22 +197,21 @@ export default function PortalPage() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md">
           <CardHeader className="text-center">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-            <CardTitle>Merci !</CardTitle>
+            <CheckCircle className="h-12 w-12 text-primary mx-auto mb-4" aria-hidden="true" />
+            <CardTitle>Thank you!</CardTitle>
             <CardDescription>
-              Votre soumission a été enregistrée avec succès.
-              Le freelance vous contactera bientôt.
+              Your submission has been received. The freelancer will review your responses.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            <Button onClick={() => router.push('/')}>
-              Retour à l'accueil
-            </Button>
+            <Button onClick={() => router.push('/')}>Back to Home</Button>
           </CardContent>
         </Card>
       </div>
     )
   }
+
+  if (!portal) return null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
@@ -222,13 +220,13 @@ export default function PortalPage() {
         <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline">Portail Client</Badge>
-              {portal?.freelancer_name && (
+              <Badge variant="outline">Client Portal</Badge>
+              {portal.freelancer_name && (
                 <Badge variant="secondary">{portal.freelancer_name}</Badge>
               )}
             </div>
-            <CardTitle className="text-2xl">{portal?.name}</CardTitle>
-            {portal?.description && (
+            <CardTitle className="text-2xl">{portal.name}</CardTitle>
+            {portal.description && (
               <CardDescription>{portal.description}</CardDescription>
             )}
           </CardHeader>
@@ -238,23 +236,23 @@ export default function PortalPage() {
         <form onSubmit={handleSubmit}>
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Informations à fournir</CardTitle>
+              <CardTitle>Information Needed</CardTitle>
               <CardDescription>
-                Veuillez remplir tous les champs obligatoires (*)
+                Please fill in all required fields (*)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {(portal?.items || []).map((item) => (
+              {portal.items.map((item) => (
                 <div key={item.id} className="space-y-2">
                   <Label htmlFor={item.id}>
                     {item.label}
                     {item.required && <span className="text-destructive ml-1">*</span>}
                   </Label>
-                  
+
                   {item.item_type === 'text' && (
                     <Textarea
                       id={item.id}
-                      placeholder={item.description || 'Saisissez votre réponse...'}
+                      placeholder={item.description || 'Enter your response...'}
                       value={formData[item.id] || ''}
                       onChange={(e) => handleInputChange(item.id, e.target.value)}
                       rows={3}
@@ -265,7 +263,7 @@ export default function PortalPage() {
                     <Input
                       id={item.id}
                       type="email"
-                      placeholder="exemple@email.com"
+                      placeholder="example@email.com"
                       value={formData[item.id] || ''}
                       onChange={(e) => handleInputChange(item.id, e.target.value)}
                     />
@@ -275,7 +273,7 @@ export default function PortalPage() {
                     <Input
                       id={item.id}
                       type="tel"
-                      placeholder="+33 6 12 34 56 78"
+                      placeholder="+1 234 567 8900"
                       value={formData[item.id] || ''}
                       onChange={(e) => handleInputChange(item.id, e.target.value)}
                     />
@@ -285,7 +283,7 @@ export default function PortalPage() {
                     <Input
                       id={item.id}
                       type="number"
-                      placeholder="Entrez un nombre"
+                      placeholder="Enter a number"
                       value={formData[item.id] || ''}
                       onChange={(e) => handleInputChange(item.id, e.target.value)}
                     />
@@ -301,6 +299,29 @@ export default function PortalPage() {
                     />
                   )}
 
+                  {item.item_type === 'date' && (
+                    <Input
+                      id={item.id}
+                      type="date"
+                      value={formData[item.id] || ''}
+                      onChange={(e) => handleInputChange(item.id, e.target.value)}
+                    />
+                  )}
+
+                  {item.item_type === 'multiple_choice' && item.choices && (
+                    <select
+                      id={item.id}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      value={formData[item.id] || ''}
+                      onChange={(e) => handleInputChange(item.id, e.target.value)}
+                    >
+                      <option value="">Select an option</option>
+                      {item.choices.map((choice) => (
+                        <option key={choice} value={choice}>{choice}</option>
+                      ))}
+                    </select>
+                  )}
+
                   {item.item_type === 'file' && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
@@ -309,25 +330,32 @@ export default function PortalPage() {
                           type="file"
                           onChange={(e) => {
                             const file = e.target.files?.[0]
-                            if (file) {
-                              handleFileUpload(item.id, file)
-                            }
+                            if (file) handleFileUpload(item.id, file)
                           }}
                           disabled={uploadingFiles[item.id]}
                         />
                         {uploadingFiles[item.id] && (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
                         )}
                       </div>
                       {formData[item.id]?.file_name && (
                         <div className="flex items-center gap-2 text-sm text-green-600">
-                          <CheckCircle className="h-4 w-4" />
-                          <span>Fichier uploadé: {formData[item.id].file_name}</span>
+                          <CheckCircle className="h-4 w-4" aria-hidden="true" />
+                          <span>Uploaded: {formData[item.id].file_name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Remove file"
+                            className="h-8 w-8 p-0 text-green-600 hover:text-red-600"
+                            onClick={() => handleInputChange(item.id, null)}
+                          >
+                            <X className="h-3 w-3" aria-hidden="true" />
+                          </Button>
                         </div>
                       )}
                       {item.expected_format && (
                         <p className="text-xs text-muted-foreground">
-                          Format attendu: {item.expected_format}
+                          Expected format: {item.expected_format}
                         </p>
                       )}
                     </div>
@@ -344,11 +372,11 @@ export default function PortalPage() {
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Soumission en cours...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                Submitting...
               </>
             ) : (
-              'Soumettre ma réponse'
+              'Submit My Response'
             )}
           </Button>
         </form>

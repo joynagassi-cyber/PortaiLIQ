@@ -1,7 +1,9 @@
-import { v4 as uuidv4 } from "uuid";
+import crypto from 'crypto'
+
+export { cn } from './cn'
 
 export function generateToken(): string {
-  return uuidv4() + uuidv4().replace(/-/g, "").slice(0, 16);
+  return crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 }
 
 export function generatePortalSlug(name: string): string {
@@ -13,7 +15,7 @@ export function generatePortalSlug(name: string): string {
 }
 
 export function formatDate(date: Date | string): string {
-  return new Date(date).toLocaleDateString("fr-FR", {
+  return new Date(date).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",

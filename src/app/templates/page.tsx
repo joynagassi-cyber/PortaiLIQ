@@ -8,14 +8,14 @@ import Link from 'next/link'
 
 export default async function TemplatesPage() {
   const supabase = await createClient()
-  
+
   // Check auth
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   if (userError || !user) {
     redirect('/signin')
   }
 
-  // Fetch user's templates
+  // Fetch user templates
   const { data: templates } = await supabase
     .from('demand_templates')
     .select('*')
@@ -31,15 +31,11 @@ export default async function TemplatesPage() {
             <Link href="/" className="font-bold text-xl text-primary">
               PortaiLIQ
             </Link>
-            <Badge variant="secondary" className="text-xs">
-              Templates
-            </Badge>
+            <Badge variant="secondary" className="text-xs">Templates</Badge>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
-              <Button variant="outline">
-                Retour au Dashboard
-              </Button>
+              <Button variant="outline">Back to Dashboard</Button>
             </Link>
           </div>
         </div>
@@ -49,15 +45,15 @@ export default async function TemplatesPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Mes Templates</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">My Templates</h1>
             <p className="text-muted-foreground mt-1">
-              Créez et gérez vos modèles de demandes réutilisables
+              Create and manage reusable field templates
             </p>
           </div>
-          <Button asChild>
+          <Button asChild disabled>
             <Link href="/templates/new">
               <Plus className="mr-2 h-4 w-4" />
-              Nouveau Template
+              New Template (Coming Soon)
             </Link>
           </Button>
         </div>
@@ -67,20 +63,20 @@ export default async function TemplatesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5" />
-              Kits de démarrage
+              Starter Kits
             </CardTitle>
             <CardDescription>
-              Utilisez nos templates pré-conçus pour démarrer rapidement
+              Use pre-built templates to get started quickly
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { name: 'Designer', icon: '🎨', description: 'Pour les designers graphiques' },
-                { name: 'Développeur', icon: '💻', description: 'Pour les développeurs web' },
-                { name: 'Consultant', icon: '📊', description: 'Pour les consultants' },
-                { name: 'Coach', icon: '🎯', description: 'Pour les coaches professionnels' },
-                { name: 'Photographe', icon: '📸', description: 'Pour les photographes' },
+                { name: 'Designer', icon: '🎨', description: 'For graphic designers' },
+                { name: 'Developer', icon: '💻', description: 'For web developers' },
+                { name: 'Consultant', icon: '📊', description: 'For consultants' },
+                { name: 'Coach', icon: '🎯', description: 'For professional coaches' },
+                { name: 'Photographer', icon: '📸', description: 'For photographers' },
               ].map((kit) => (
                 <Card key={kit.name} className="cursor-pointer hover:border-primary transition-colors">
                   <CardContent className="pt-6">
@@ -89,7 +85,7 @@ export default async function TemplatesPage() {
                       <h3 className="font-semibold mb-1">{kit.name}</h3>
                       <p className="text-sm text-muted-foreground">{kit.description}</p>
                       <Button variant="outline" size="sm" className="mt-4 w-full">
-                        Utiliser ce kit
+                        Use this kit
                       </Button>
                     </div>
                   </CardContent>
@@ -101,20 +97,20 @@ export default async function TemplatesPage() {
 
         {/* Templates List */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Vos Templates</h2>
-          
+          <h2 className="text-xl font-semibold text-foreground">Your Templates</h2>
+
           {!templates || templates.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Aucun template créé</h3>
+                <h3 className="text-lg font-semibold mb-2">No templates yet</h3>
                 <p className="text-muted-foreground text-center mb-4 max-w-md">
-                  Créez votre premier template pour réutiliser facilement vos demandes favorites.
+                  Create your first template to easily reuse your favorite field combinations.
                 </p>
                 <Button asChild>
                   <Link href="/templates/new">
                     <Plus className="mr-2 h-4 w-4" />
-                    Créer un template
+                    Create a template
                   </Link>
                 </Button>
               </CardContent>
@@ -128,7 +124,7 @@ export default async function TemplatesPage() {
                       <div className="space-y-1">
                         <CardTitle className="text-lg">{template.name}</CardTitle>
                         <CardDescription>
-                          {template.profession_category || 'Sans catégorie'}
+                          {template.profession_category || 'Uncategorized'}
                         </CardDescription>
                       </div>
                       <div className="flex items-center gap-2">
@@ -144,10 +140,10 @@ export default async function TemplatesPage() {
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">
-                        Créé le {new Date(template.created_at).toLocaleDateString('fr-FR')}
+                        Created {new Date(template.created_at).toLocaleDateString('en-US')}
                       </span>
                       <Button variant="outline" size="sm">
-                        Utiliser
+                        Use
                       </Button>
                     </div>
                   </CardContent>

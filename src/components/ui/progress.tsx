@@ -8,10 +8,15 @@ export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
   ({ className, value = 0, max = 100, ...props }, ref) => {
+    const clamped = Math.max(0, Math.min(value, max))
     const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
     return (
       <div
         ref={ref}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={max}
+        aria-valuenow={clamped}
         className={cn("relative h-2 w-full overflow-hidden rounded-full bg-secondary", className)}
         {...props}
       >

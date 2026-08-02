@@ -1,3 +1,5 @@
-{
-  "extends": "./src/app/globals.css"
+export default {
+  plugins: {
+    tailwindcss: {},
+  },
 }

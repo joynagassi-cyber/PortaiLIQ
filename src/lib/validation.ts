@@ -1,18 +1,5 @@
 import { z } from "zod";
 
-// --- Auth Schemas ---
-export const signUpSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  displayName: z.string().min(2).max(50),
-  profession: z.enum(["designer", "developer", "consultant", "coach", "photographer", "other"]).optional(),
-});
-
-export const signInSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
-});
-
 // --- Portal Schemas ---
 export const createPortalSchema = z.object({
   name: z.string().min(1).max(100),
@@ -22,6 +9,7 @@ export const createPortalSchema = z.object({
 });
 
 export const updatePortalSchema = z.object({
+  id: z.string().uuid(),
   name: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional(),
   logoUrl: z.string().url().optional().or(z.literal("")),
@@ -36,7 +24,7 @@ export const createItemSchema = z.object({
   expectedFormat: z.string().max(50).optional(),
   required: z.boolean().default(true),
   choices: z.array(z.string()).optional(),
-  sortOrder: z.number().int().default(0),
+  sortOrder: z.number().int().min(0).default(0),
 });
 
 // --- Template Schemas ---
@@ -56,26 +44,40 @@ export const createLinkSchema = z.object({
 });
 
 // --- Submission Schemas ---
-export const submitTextSchema = z.object({
+export const submissionItemSchema = z.object({
   portalItemId: z.string().uuid(),
-  portalAccessLinkId: z.string().uuid(),
-  contentText: z.string().max(10000),
+  contentText: z.string().max(10000).optional(),
+  fileUrl: z.string().url().optional(),
+  fileName: z.string().max(255).optional(),
+  fileSize: z.number().int().positive().optional(),
+  fileType: z.string().max(50).optional(),
 });
 
-export const submitFileSchema = z.object({
-  portalItemId: z.string().uuid(),
-  portalAccessLinkId: z.string().uuid(),
+export const submitPortalSchema = z.object({
+  portalToken: z.string().min(1),
+  linkToken: z.string().uuid().optional(),
+  clientName: z.string().max(100).optional(),
+  clientEmail: z.string().email().optional(),
+  answers: z.record(z.union([z.string(), submissionItemSchema])).min(1),
+});
+
+// --- Upload Schemas ---
+export const presignUploadSchema = z.object({
   fileName: z.string().max(255),
-  fileSize: z.number().int().positive(),
+  fileType: z.string().max(50),
+  portalItemId: z.string().uuid(),
+  expectedFormat: z.string().max(50).optional(),
+});
+
+export const completeUploadSchema = z.object({
+  key: z.string().min(1),
+  portalItemId: z.string().uuid(),
+  fileName: z.string().max(255),
+  fileSize: z.number().int().positive().max(10 * 1024 * 1024),
   fileType: z.string().max(50),
 });
 
-// --- Reminder Schema ---
-export const sendReminderSchema = z.object({
-  portalAccessLinkId: z.string().uuid(),
-});
-
-// --- Gumroad License Schema ---
+// --- Gumroad Schemas ---
 export const verifyLicenseSchema = z.object({
   licenseKey: z.string().min(1),
   productId: z.string().min(1),
@@ -90,16 +92,14 @@ export const gumroadWebhookSchema = z.object({
   product_name: z.string().optional(),
 }).strict();
 
-// --- Zod Validators for API Routes ---
-export type SignUpInput = z.infer<typeof signUpSchema>;
-export type SignInInput = z.infer<typeof signInSchema>;
+// --- Zod Types ---
 export type CreatePortalInput = z.infer<typeof createPortalSchema>;
 export type UpdatePortalInput = z.infer<typeof updatePortalSchema>;
 export type CreateItemInput = z.infer<typeof createItemSchema>;
 export type CreateTemplateInput = z.infer<typeof createTemplateSchema>;
 export type CreateLinkInput = z.infer<typeof createLinkSchema>;
-export type SubmitTextInput = z.infer<typeof submitTextSchema>;
-export type SubmitFileInput = z.infer<typeof submitFileSchema>;
-export type SendReminderInput = z.infer<typeof sendReminderSchema>;
+export type SubmitPortalInput = z.infer<typeof submitPortalSchema>;
+export type PresignUploadInput = z.infer<typeof presignUploadSchema>;
+export type CompleteUploadInput = z.infer<typeof completeUploadSchema>;
 export type VerifyLicenseInput = z.infer<typeof verifyLicenseSchema>;
 export type GumroadWebhookInput = z.infer<typeof gumroadWebhookSchema>;

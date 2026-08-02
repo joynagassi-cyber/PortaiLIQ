@@ -3,21 +3,19 @@
  * POST /api/gumroad/verify
  */
 
-import { NextResponse } from 'next/server';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { eq, desc } from 'drizzle-orm';
-import { db } from '@/db';
-import { gumroadLicenses } from '@/db/schema';
+import { NextResponse } from 'next/server'
+import { db } from '@/db'
+import { gumroadLicenses } from '@/db/schema'
 
 export async function POST(request: Request) {
   try {
-    const { licenseKey, productId, userId } = await request.json();
+    const { licenseKey, productId, userId } = await request.json()
 
     if (!licenseKey || !productId) {
       return NextResponse.json(
         { error: 'Missing licenseKey or productId' },
         { status: 400 }
-      );
+      )
     }
 
     // Verify with Gumroad API
@@ -29,15 +27,15 @@ export async function POST(request: Request) {
         license_key: licenseKey,
         increment_uses_count: 'false',
       }),
-    });
+    })
 
-    const gumroadData = await gumroadResponse.json();
+    const gumroadData = await gumroadResponse.json()
 
     if (!gumroadData.success) {
       return NextResponse.json(
         { error: gumroadData.message || 'Invalid license key' },
         { status: 400 }
-      );
+      )
     }
 
     // Skip test purchases
@@ -45,25 +43,25 @@ export async function POST(request: Request) {
       return NextResponse.json({
         valid: false,
         message: 'Test purchase — no access granted',
-      });
+      })
     }
 
     // Determine tier from product
-    const productName = (gumroadData.product_name || '').toLowerCase();
-    let tier = 'free';
-    if (productName.includes('agency')) tier = 'agency';
-    else if (productName.includes('professional')) tier = 'professional';
-    else if (productName.includes('starter')) tier = 'starter';
+    const productName = (gumroadData.product_name || '').toLowerCase()
+    let tier = 'starter'
+    if (productName.includes('agency')) tier = 'agency'
+    else if (productName.includes('professional')) tier = 'professional'
+    else if (productName.includes('starter')) tier = 'starter'
 
     // Store / update license in DB
     if (userId) {
       await db
         .insert(gumroadLicenses)
         .values({
-          userId: userId,
+          userId,
           gumroadLicenseKey: licenseKey,
           gumroadOrderId: gumroadData.purchase?.id,
-          productId: productId,
+          productId,
           productName: gumroadData.product_name,
           planTier: tier,
           isVerified: true,
@@ -77,19 +75,19 @@ export async function POST(request: Request) {
             verifiedAt: new Date(),
             planTier: tier,
           },
-        });
+        })
     }
 
     return NextResponse.json({
       valid: true,
-      tier,
+      tier: tier === 'free' ? 'starter' : tier, // No free tier — upgrade to starter
       product: gumroadData.product_name,
-    });
+    })
   } catch (error) {
-    console.error('Gumroad verification error:', error);
+    console.error('Gumroad verification error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
-    );
+    )
   }
 }

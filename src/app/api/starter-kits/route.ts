@@ -6,70 +6,70 @@ const STARTER_KITS = {
     name: 'Designer',
     items: [
       {
-        label: 'Logo haute résolution',
-        description: 'Fichier PNG ou SVG en haute résolution',
+        label: 'High-res Logo',
+        description: 'PNG or SVG file in high resolution',
         itemType: 'file' as const,
         expectedFormat: 'PNG, SVG',
         required: true,
       },
       {
-        label: 'Palette de couleurs',
-        description: 'Codes couleur principaux et secondaires',
+        label: 'Color Palette',
+        description: 'Main and secondary color codes',
         itemType: 'text' as const,
         required: true,
       },
       {
-        label: 'Polices utilisées',
-        description: 'Noms des polices et liens de téléchargement si possible',
+        label: 'Fonts Used',
+        description: 'Font names and download links if possible',
         itemType: 'text' as const,
         required: false,
       },
       {
-        label: 'Exemples d\'inspirations',
-        description: 'Liens vers des designs que vous aimez',
+        label: 'Inspiration Examples',
+        description: 'Links to designs you like',
         itemType: 'url' as const,
         required: false,
       },
       {
-        label: 'Brief du projet',
-        description: 'Description détaillée de vos besoins et objectifs',
-        itemType: 'textarea' as const,
+        label: 'Project Brief',
+        description: 'Detailed description of your needs and goals',
+        itemType: 'text' as const,
         required: true,
       },
     ],
   },
   developer: {
-    name: 'Développeur',
+    name: 'Developer',
     items: [
       {
-        label: 'Accès au repository',
-        description: 'Lien vers le repo GitHub/GitLab ou accès direct',
+        label: 'Repository Access',
+        description: 'GitHub/GitLab link or direct access',
         itemType: 'url' as const,
         required: true,
       },
       {
-        label: 'Documentation technique',
-        description: 'Docs existantes ou spécifications techniques',
+        label: 'Technical Documentation',
+        description: 'Existing docs or technical specifications',
         itemType: 'file' as const,
         expectedFormat: 'PDF, MD',
         required: false,
       },
       {
-        label: 'Stack technologique',
-        description: 'Technologies et frameworks utilisés',
+        label: 'Technology Stack',
+        description: 'Technologies and frameworks used',
         itemType: 'text' as const,
         required: true,
       },
       {
-        label: 'Environnements d\'hébergement',
-        description: 'URLs des environnements dev, staging, production',
+        label: 'Hosting Environments',
+        description: 'URLs for dev, staging, production environments',
         itemType: 'url' as const,
         required: false,
       },
       {
-        label: 'Critères de succès',
-        description: 'Comment mesurer le succès du projet ?',
-        itemType: 'textarea' as const,
+        label: 'Success Criteria',
+        description: 'How to measure project success?',
+        itemType: 'text' as const,
         required: true,
       },
     ],
@@ -78,33 +78,33 @@ const STARTER_KITS = {
     name: 'Consultant',
     items: [
       {
-        label: 'Contexte du projet',
-        description: 'Historique et contexte autour de la mission',
-        itemType: 'textarea' as const,
-        required: true,
-      },
-      {
-        label: 'Parties prenantes',
-        description: 'Liste des personnes impliquées et leurs rôles',
+        label: 'Project Context',
+        description: 'History and context around the mission',
         itemType: 'text' as const,
         required: true,
       },
       {
-        label: 'Budget estimé',
-        description: 'Fourchette budgétaire pour le projet',
+        label: 'Stakeholders',
+        description: 'List of involved people and their roles',
+        itemType: 'text' as const,
+        required: true,
+      },
+      {
+        label: 'Estimated Budget',
+        description: 'Budget range for the project',
         itemType: 'number' as const,
         required: false,
       },
       {
-        label: 'Calendarisation',
-        description: 'Dates clés et délais attendus',
+        label: 'Timeline',
+        description: 'Key dates and expected deadlines',
         itemType: 'date' as const,
         required: true,
       },
       {
-        label: 'Livrables attendus',
-        description: 'Liste des livrables esperus et leur format',
-        itemType: 'textarea' as const,
+        label: 'Deliverables',
+        description: 'List of expected deliverables and their format',
+        itemType: 'text' as const,
         required: true,
       },
     ],
@@ -113,68 +113,68 @@ const STARTER_KITS = {
     name: 'Coach',
     items: [
       {
-        label: 'Objectifs de coaching',
-        description: 'Ce que vous souhaitez atteindre',
-        itemType: 'textarea' as const,
-        required: true,
-      },
-      {
-        label: 'Disponibilités',
-        description: 'Crneaux horaires qui vous conviennent',
+        label: 'Coaching Goals',
+        description: 'What you want to achieve',
         itemType: 'text' as const,
         required: true,
       },
       {
-        label: 'Préférences de communication',
-        description: 'Email, téléphone, visio ?',
+        label: 'Availability',
+        description: 'Time slots that work for you',
+        itemType: 'text' as const,
+        required: true,
+      },
+      {
+        label: 'Communication Preferences',
+        description: 'Email, phone, video call?',
         itemType: 'text' as const,
         required: false,
       },
       {
-        label: 'Contexte professionnel',
-        description: 'Votre rôle actuel et environnement de travail',
-        itemType: 'textarea' as const,
+        label: 'Professional Context',
+        description: 'Your current role and work environment',
+        itemType: 'text' as const,
         required: false,
       },
       {
-        label: 'Échéance souhaitée',
-        description: 'Date butoir pour atteindre vos objectifs',
+        label: 'Target Deadline',
+        description: 'Deadline to achieve your goals',
         itemType: 'date' as const,
         required: false,
       },
     ],
   },
-  photographe: {
-    name: 'Photographe',
+  photographer: {
+    name: 'Photographer',
     items: [
       {
-        label: 'Type de prestation',
-        description: 'Mariage, portrait, événement, produit...',
-        itemType: 'select' as const,
-        choices: ['Mariage', 'Portrait', 'Événement', 'Produit', 'Autre'],
+        label: 'Session Type',
+        description: 'Wedding, portrait, event, product...',
+        itemType: 'multiple_choice' as const,
+        choices: ['Wedding', 'Portrait', 'Event', 'Product', 'Other'],
         required: true,
       },
       {
-        label: 'Date de la séance',
-        description: 'Date prévue pour la prestation',
+        label: 'Session Date',
+        description: 'Planned date for the session',
         itemType: 'date' as const,
         required: true,
       },
       {
-        label: 'Lieu souhaité',
-        description: 'Adresse ou type de lieu pour les photos',
+        label: 'Preferred Location',
+        description: 'Address or type of location for photos',
         itemType: 'text' as const,
         required: false,
       },
       {
-        label: 'Inspirations visuelles',
-        description: 'Liens vers des photos qui vous inspirent',
+        label: 'Visual Inspirations',
+        description: 'Links to photos that inspire you',
         itemType: 'url' as const,
         required: false,
       },
       {
-        label: 'Nombre de photos attendues',
-        description: 'Approximation du nombre de photos livrées',
+        label: 'Expected Photo Count',
+        description: 'Approximate number of delivered photos',
         itemType: 'number' as const,
         required: false,
       },
@@ -190,7 +190,7 @@ export async function GET(request: Request) {
     if (profession) {
       const kit = STARTER_KITS[profession as keyof typeof STARTER_KITS]
       if (!kit) {
-        return NextResponse.json({ error: 'Métier non trouvé' }, { status: 404 })
+        return NextResponse.json({ error: 'Profession not found' }, { status: 404 })
       }
       return NextResponse.json({ kit })
     }
@@ -204,6 +204,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ professions })
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
