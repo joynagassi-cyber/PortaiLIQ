@@ -85,7 +85,8 @@ export default function PricingPage() {
           {PLANS.map((plan) => (
             <Card
               key={plan.name}
-              className={`relative flex flex-col ${
+              id={plan.name.toLowerCase()}
+              className={`relative flex flex-col scroll-mt-24 ${
                 plan.popular
                   ? 'border-primary border-2 shadow-sm scale-[1.02]'
                   : 'border-border'

@@ -102,7 +102,8 @@ Ce système rejette explicitement les clichés SaaS : pas de gradients arc-en-ci
 - Typographie système native : aucune dépendance externe, chargement instantané
 - Ombres minimales : profondeur par tonalité, pas par élévation
 - Composants shadcn/ui : accessibles, interopérables, sans surcharge
-- Langue unique : français partout, aucune internationalisation nécessaire
+- Langue : anglais (international) — métadonnées et copie cohérentes en anglais
+- **Signature** : la voix mono « machine » (tokens, statuts, métadonnées de fichiers) + l'artefact « portail client » en direct dans le hero — on démontre le produit, on ne le décrit pas
 
 ## 2. Colors
 
@@ -138,11 +139,14 @@ Le mode sombre inverse les rôles : fond passe à hsl(222.2, 84%, 4.9%), texte �
 **Body Font:** system-ui stack (identique au display)
 **Label Font:** system-ui stack (identique)
 
-**Character:** Mono-font. Un seul family, plusieurs poids. Pas de juxtaposition de polices similaires — le système utilise la différence de poids (400, 500, 600, 700) pour créer la hiérarchie. Zéro dépendance externe, zéro délai de chargement.
+**Character:** Sans native. Un seul family, plusieurs poids. Pas de juxtaposition de polices similaires — le système utilise la différence de poids (400, 500, 600, 700) pour créer la hiérarchie. Zéro dépendance externe, zéro délai de chargement.
+
+**Voix machine (mono, `font-mono`):** le produit est littéralement basé sur des tokens (`portal/acme-7f3a9c`). Tout ce qui est machine — tokens, statuts (`AWAITING`), noms de fichiers (`brief_v2.pdf · 2.4 MB`), compteurs (`3 of 5`), suffixe de prix (`/mo`) — s'écrit en mono. La paire délibérée est **humain (sans) vs machine (mono)** : le lecteur entend immédiatement ce qui est langage de l'outil. Aucune dépendance externe (stack `ui-monospace` native).
 
 ### Hierarchy
 
 - **Display** (700, clamp(2.25rem, 5vw, 3.75rem), 1.1): Titres hero uniquement (`h1` sur la landing page). Letter-spacing: -0.02em.
+- **Hero = démonstration, pas description** : deux colonnes sur `lg` (copy à gauche, artefact « portail client » à droite). L'artefact est une vraie carte produit — en-tête client + token mono + statut, champs remplis, un champ en attente (dashed), footer « collecting » avec la barre `Progress`. Une seule pastille animée (`animate-ping`, neutralisée via `motion-reduce:animate-none`) signale le live. C'est LA signature de la landing : tout le reste reste sobre.
 - **Headline** (700, 1.875rem, 1.2): Titres de section (`h2`), titres de carte (`CardTitle`). Letter-spacing: -0.01em.
 - **Body** (400, 1rem, 1.6): Paragraphe, description de contenu. Line length: 65-75ch max.
 - **Muted** (400, 0.875rem, 1.5, #6B7280): Sous-titres, descriptions secondaires, métadonnées.
@@ -233,7 +237,7 @@ Le mode sombre inverse les rôles : fond passe à hsl(222.2, 84%, 4.9%), texte �
 - **Do** employer `bg-gradient-to-br from-background to-muted` pour les fonds de section plein écran (hero, auth pages, portal public).
 - **Do** maintenir la hiérarchie typographique : display → headline → body → muted → label.
 - **Do** utiliser `text-wrap: balance` sur les titres h1-h3 pour des lignes équilibrées.
-- **Do** concevoir en français dès le départ — aucun fallback i18n nécessaire.
+- **Do** rédiger la copie en anglais (international) dès le départ — métadonnées et copie restent dans la même langue.
 - **Do** privilégier l'accessibilité : focus-visible ring sur tous les éléments interactifs, contraste ≥ 4.5:1 pour le texte corps.
 
 ### Don't:
