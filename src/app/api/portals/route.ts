@@ -1,59 +1,77 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import crypto from 'crypto'
+
+const createPortalSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  logoUrl: z.string().url().optional().or(z.literal('')),
+  clientProfileId: z.string().uuid().optional(),
+})
+
+const updatePortalSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  logoUrl: z.string().url().optional().or(z.literal('')),
+  status: z.enum(['active', 'archived', 'completed']).optional(),
+})
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
-    const { name, description } = body
+    const validationResult = createPortalSchema.safeParse(body)
 
-    if (!name) {
-      return NextResponse.json({ error: 'Le nom est requis' }, { status: 400 })
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid data', details: validationResult.error.errors },
+        { status: 400 }
+      )
     }
 
     // Generate unique token for the portal
     const token = crypto.randomBytes(16).toString('hex')
 
-    // Create portal
-    const { data: portal, error: portalError } = await supabase
+    const { data: portal, error } = await supabase
       .from('portals')
       .insert({
-        user_id: user.id,
-        name,
-        description: description || null,
+        userId: user.id,
+        name: validationResult.data.name,
+        description: validationResult.data.description || null,
+        logoUrl: validationResult.data.logoUrl || null,
+        clientProfileId: validationResult.data.clientProfileId || null,
         token,
-        status: 'draft',
+        status: 'active',
       })
       .select()
       .single()
 
-    if (portalError) {
-      console.error('Error creating portal:', portalError)
-      return NextResponse.json({ error: 'Erreur lors de la création' }, { status: 500 })
+    if (error) {
+      console.error('Portal creation error:', error)
+      return NextResponse.json({ error: 'Failed to create portal' }, { status: 500 })
     }
 
     return NextResponse.json({ portal }, { status: 201 })
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
-    
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -72,36 +90,36 @@ export async function GET(request: Request) {
     const { data: portals, error } = await query
 
     if (error) {
-      return NextResponse.json({ error: 'Erreur de requête' }, { status: 500 })
+      return NextResponse.json({ error: 'Query error' }, { status: 500 })
     }
 
     return NextResponse.json(portals)
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 export async function PUT(request: Request) {
   try {
     const supabase = await createClient()
-    
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
-    const { id, name, description, status } = body
+    const validationResult = updatePortalSchema.safeParse(body)
 
-    if (!id) {
-      return NextResponse.json({ error: 'ID requis' }, { status: 400 })
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid data' },
+        { status: 400 }
+      )
     }
 
-    const updateData: any = {}
-    if (name) updateData.name = name
-    if (description !== undefined) updateData.description = description
-    if (status) updateData.status = status
+    const { id, ...updateData } = validationResult.data
 
     const { data: portal, error } = await supabase
       .from('portals')
@@ -112,30 +130,30 @@ export async function PUT(request: Request) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Erreur lors de la mise à jour' }, { status: 500 })
+      return NextResponse.json({ error: 'Update failed' }, { status: 500 })
     }
 
     return NextResponse.json({ portal })
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 export async function DELETE(request: Request) {
   try {
     const supabase = await createClient()
-    
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json({ error: 'ID requis' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing portal id' }, { status: 400 })
     }
 
     const { error } = await supabase
@@ -145,12 +163,12 @@ export async function DELETE(request: Request) {
       .eq('user_id', user.id)
 
     if (error) {
-      return NextResponse.json({ error: 'Erreur lors de la suppression' }, { status: 500 })
+      return NextResponse.json({ error: 'Delete failed' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

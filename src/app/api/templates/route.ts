@@ -1,19 +1,19 @@
-import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
 const templateSchema = z.object({
-  name: z.string().min(1),
-  professionCategory: z.string().optional(),
+  name: z.string().min(1).max(100),
+  professionCategory: z.string().max(50).optional(),
 })
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Données invalides', details: validationResult.error.errors },
+        { error: 'Invalid data', details: validationResult.error.errors },
         { status: 400 }
       )
     }
@@ -31,32 +31,32 @@ export async function POST(request: Request) {
     const { data: template, error } = await supabase
       .from('demand_templates')
       .insert({
-        user_id: user.id,
+        userId: user.id,
         name,
-        profession_category: professionCategory || null,
+        professionCategory: professionCategory || null,
       })
       .select()
       .single()
 
     if (error) {
-      console.error('Error creating template:', error)
-      return NextResponse.json({ error: 'Erreur lors de la création du template' }, { status: 500 })
+      console.error('Template creation error:', error)
+      return NextResponse.json({ error: 'Failed to create template' }, { status: 500 })
     }
 
     return NextResponse.json({ template }, { status: 201 })
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
-    
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -75,12 +75,12 @@ export async function GET(request: Request) {
     const { data: templates, error } = await query
 
     if (error) {
-      return NextResponse.json({ error: 'Erreur de requête' }, { status: 500 })
+      return NextResponse.json({ error: 'Query error' }, { status: 500 })
     }
 
     return NextResponse.json(templates)
   } catch (error) {
     console.error('Error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

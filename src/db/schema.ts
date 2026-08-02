@@ -13,7 +13,7 @@ import {
 export const itemTypeEnum = pgEnum("item_type", ["text", "file", "email", "phone", "number", "url", "date", "multiple_choice"]);
 export const submissionStatusEnum = pgEnum("submission_status", ["pending", "received", "flagged"]);
 export const portalStatusEnum = pgEnum("portal_status", ["active", "archived", "completed"]);
-export const subscriptionEnum = pgEnum("subscription_status", ["free", "founding", "active", "cancelled"]);
+export const subscriptionEnum = pgEnum("subscription_status", ["none", "starter", "active", "cancelled"]);
 export const taskTypeEnum = pgEnum("ai_task_type", ["completeness_check", "summary", "file_verification"]);
 export const aiProviderEnum = pgEnum("ai_provider", ["agnes", "google", "cerebras", "groq"]);
 export const aiCallStatusEnum = pgEnum("ai_call_status", ["success", "failed", "timeout"]);
@@ -26,7 +26,6 @@ export const activityActionEnum = pgEnum("activity_action", [
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").unique().notNull(),
-  passwordHash: text("password_hash").notNull(),
   displayName: text("display_name"),
   avatarUrl: text("avatar_url"),
   profession: text("profession"),
@@ -167,7 +166,7 @@ export const gumroadLicenses = pgTable("gumroad_licenses", {
   gumroadOrderId: text("gumroad_order_id"),
   productId: text("product_id").notNull(),
   productName: text("product_name"),
-  planTier: subscriptionEnum("plan_tier").default("free").notNull(),
+  planTier: subscriptionEnum("plan_tier").default("none").notNull(),
   isVerified: boolean("is_verified").default(false).notNull(),
   verifiedAt: timestamp("verified_at"),
   expiresAt: timestamp("expires_at"),

@@ -60,3 +60,8 @@ next-env.d.ts
 .idea/
 *.swp
 *.swo
+
+# Local tool state
+.freebuff/
+.impeccable/
+*.stackdump

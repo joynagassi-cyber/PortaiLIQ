@@ -21,12 +21,13 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
 interface ItemConfig {
-  id: string
   label: string
   description: string
-  itemType: 'text' | 'file' | 'email' | 'phone' | 'number' | 'url' | 'date'
+  itemType: 'text' | 'file' | 'email' | 'phone' | 'number' | 'url' | 'date' | 'multiple_choice'
   required: boolean
   sortOrder: number
+  choices?: string[]
+  expectedFormat?: string
 }
 
 export function CreatePortalDialog() {
@@ -36,21 +37,20 @@ export function CreatePortalDialog() {
   const [portalName, setPortalName] = useState('')
   const [portalDescription, setPortalDescription] = useState('')
   const [items, setItems] = useState<ItemConfig[]>([])
-  const [newItemType, setNewItemType] = useState<'text' | 'file' | 'email' | 'phone' | 'number' | 'url' | 'date'>('text')
+  const [newItemType, setNewItemType] = useState<ItemConfig['itemType']>('text')
 
   const itemTypes = [
-    { value: 'text', label: 'Texte', icon: FileText },
-    { value: 'file', label: 'Fichier', icon: Image },
+    { value: 'text', label: 'Text', icon: FileText },
+    { value: 'file', label: 'File', icon: Image },
     { value: 'email', label: 'Email', icon: Mail },
-    { value: 'phone', label: 'Téléphone', icon: Phone },
-    { value: 'number', label: 'Nombre', icon: Hash },
+    { value: 'phone', label: 'Phone', icon: Phone },
+    { value: 'number', label: 'Number', icon: Hash },
     { value: 'url', label: 'URL', icon: Globe },
     { value: 'date', label: 'Date', icon: Calendar },
   ]
 
   const addItem = () => {
     const newItem: ItemConfig = {
-      id: Date.now().toString(),
       label: '',
       description: '',
       itemType: newItemType,
@@ -60,22 +60,22 @@ export function CreatePortalDialog() {
     setItems([...items, newItem])
   }
 
-  const removeItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id))
+  const removeItem = (index: number) => {
+    setItems(items.filter((_, i) => i !== index))
   }
 
-  const updateItem = (id: string, updates: Partial<ItemConfig>) => {
-    setItems(items.map(item => item.id === id ? { ...item, ...updates } : item))
+  const updateItem = (index: number, updates: Partial<ItemConfig>) => {
+    setItems(items.map((item, i) => i === index ? { ...item, ...updates } : item))
   }
 
   const handleCreatePortal = async () => {
     if (!portalName.trim()) {
-      toast.error('Le nom du portail est requis')
+      toast.error('Portal name is required')
       return
     }
 
     if (items.length === 0) {
-      toast.error('Ajoutez au moins un item')
+      toast.error('Add at least one item')
       return
     }
 
@@ -88,13 +88,13 @@ export function CreatePortalDialog() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: portalName,
-          description: portalDescription,
+          description: portalDescription || null,
         }),
       })
 
       if (!portalRes.ok) {
         const error = await portalRes.json()
-        throw new Error(error.error || 'Erreur lors de la création du portail')
+        throw new Error(error.error || 'Failed to create portal')
       }
 
       const portalData = await portalRes.json()
@@ -105,27 +105,24 @@ export function CreatePortalDialog() {
         const itemRes = await fetch(`/api/portals/${portalId}/items`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            label: item.label,
-            description: item.description,
-            itemType: item.itemType,
-            required: item.required,
-            sortOrder: item.sortOrder,
-          }),
+          body: JSON.stringify(item),
         })
 
         if (!itemRes.ok) {
           const error = await itemRes.json()
-          throw new Error(error.error || 'Erreur lors de la création des items')
+          throw new Error(error.error || 'Failed to create item')
         }
       }
 
-      toast.success('Portail créé avec succès !')
+      toast.success('Portal created successfully!')
       setOpen(false)
+      setPortalName('')
+      setPortalDescription('')
+      setItems([])
       router.refresh()
     } catch (error) {
       console.error('Error creating portal:', error)
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de la création')
+      toast.error(error instanceof Error ? error.message : 'Creation failed')
     } finally {
       setCreating(false)
     }
@@ -135,15 +132,15 @@ export function CreatePortalDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Nouveau Portail
+          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+          New Portal
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Créer un nouveau portail</DialogTitle>
+          <DialogTitle>Create a new portal</DialogTitle>
           <DialogDescription>
-            Créez un espace de collecte d'informations pour vos clients.
+            Create a collection space for your client&apos;s information.
           </DialogDescription>
         </DialogHeader>
 
@@ -151,10 +148,10 @@ export function CreatePortalDialog() {
           {/* Portal Info */}
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="portal-name">Nom du portail *</Label>
+              <Label htmlFor="portal-name">Portal Name *</Label>
               <Input
                 id="portal-name"
-                placeholder="Ex: Onboarding - Projet X"
+                placeholder="e.g. Onboarding — Project X"
                 value={portalName}
                 onChange={(e) => setPortalName(e.target.value)}
               />
@@ -163,7 +160,7 @@ export function CreatePortalDialog() {
               <Label htmlFor="portal-description">Description</Label>
               <Textarea
                 id="portal-description"
-                placeholder="Décrivez l'objectif de ce portail..."
+                placeholder="Describe the purpose of this portal..."
                 value={portalDescription}
                 onChange={(e) => setPortalDescription(e.target.value)}
                 rows={3}
@@ -174,12 +171,13 @@ export function CreatePortalDialog() {
           {/* Items Configuration */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label>Éléments du portail</Label>
+              <Label>Portal Items</Label>
               <div className="flex items-center gap-2">
                 <select
-                  className="text-sm border rounded-md px-2 py-1"
+                  aria-label="Item type"
+                  className="text-sm border rounded-md px-2 py-1 bg-background"
                   value={newItemType}
-                  onChange={(e) => setNewItemType(e.target.value as any)}
+                  onChange={(e) => setNewItemType(e.target.value as ItemConfig['itemType'])}
                 >
                   {itemTypes.map(type => (
                     <option key={type.value} value={type.value}>
@@ -188,8 +186,8 @@ export function CreatePortalDialog() {
                   ))}
                 </select>
                 <Button variant="outline" size="sm" onClick={addItem}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Ajouter
+                  <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
+                  Add
                 </Button>
               </div>
             </div>
@@ -198,34 +196,36 @@ export function CreatePortalDialog() {
               {items.map((item, index) => {
                 const TypeIcon = itemTypes.find(t => t.value === item.itemType)?.icon || FileText
                 return (
-                  <Card key={item.id}>
+                  <Card key={index}>
                     <CardContent className="pt-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <TypeIcon className="h-4 w-4 text-muted-foreground" />
+                          <TypeIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                           <span className="text-sm font-medium">
-                            Élément {index + 1}
+                            Item {index + 1}
                           </span>
                           <Badge variant={item.required ? 'default' : 'secondary'}>
-                            {item.required ? 'Requis' : 'Optionnel'}
+                            {item.required ? 'Required' : 'Optional'}
                           </Badge>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeItem(item.id)}
+                          aria-label={`Delete item ${index + 1}`}
+                          onClick={() => removeItem(index)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </Button>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
-                          <Label className="text-xs">Label *</Label>
+                          <Label htmlFor={`item-label-${index}`} className="text-xs">Label *</Label>
                           <Input
-                            placeholder="Ex: Logo haute résolution"
+                            id={`item-label-${index}`}
+                            placeholder="e.g. Company Logo"
                             value={item.label}
-                            onChange={(e) => updateItem(item.id, { label: e.target.value })}
+                            onChange={(e) => updateItem(index, { label: e.target.value })}
                             className="h-8"
                           />
                         </div>
@@ -238,11 +238,12 @@ export function CreatePortalDialog() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-xs">Description</Label>
+                        <Label htmlFor={`item-description-${index}`} className="text-xs">Description</Label>
                         <Input
-                          placeholder="Instructions pour le client..."
+                          id={`item-description-${index}`}
+                          placeholder="Instructions for the client..."
                           value={item.description}
-                          onChange={(e) => updateItem(item.id, { description: e.target.value })}
+                          onChange={(e) => updateItem(index, { description: e.target.value })}
                           className="h-8"
                         />
                       </div>
@@ -250,13 +251,13 @@ export function CreatePortalDialog() {
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          id={`required-${item.id}`}
+                          id={`required-${index}`}
                           checked={item.required}
-                          onChange={(e) => updateItem(item.id, { required: e.target.checked })}
+                          onChange={(e) => updateItem(index, { required: e.target.checked })}
                           className="rounded"
                         />
-                        <Label htmlFor={`required-${item.id}`} className="text-xs">
-                          Champ obligatoire
+                        <Label htmlFor={`required-${index}`} className="text-xs">
+                          Required field
                         </Label>
                       </div>
                     </CardContent>
@@ -266,8 +267,8 @@ export function CreatePortalDialog() {
 
               {items.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>Aucun élément configuré</p>
-                  <p className="text-sm">Ajoutez des éléments pour collecter les informations de vos clients</p>
+                  <p>No items configured</p>
+                  <p className="text-sm">Add items to collect information from your clients</p>
                 </div>
               )}
             </div>
@@ -276,16 +277,16 @@ export function CreatePortalDialog() {
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={creating}>
-            Annuler
+            Cancel
           </Button>
           <Button onClick={handleCreatePortal} disabled={creating || !portalName.trim() || items.length === 0}>
             {creating ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Création...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                Creating...
               </>
             ) : (
-              'Créer le portail'
+              'Create Portal'
             )}
           </Button>
         </DialogFooter>

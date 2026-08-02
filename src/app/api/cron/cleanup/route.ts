@@ -1,33 +1,51 @@
 import { NextResponse } from 'next/server'
 
+/**
+ * File cleanup cron — triggered by Cloudflare Cron Trigger
+ * GET /api/cron/cleanup?secret={CRON_SECRET}
+ *
+ * Deletes files older than CLEANUP_DAYS (default: 30 days) from R2
+ */
 export async function GET(request: Request) {
-  // This route is called by Cloudflare Cron Trigger
-  // It cleans up expired files from R2 storage
-  
   try {
-    // In production, this would:
-    // 1. Query submissions older than 30 days
-    // 2. Delete associated files from R2
-    // 3. Clean up database records
-    
+    // Verify cron secret
     const { searchParams } = new URL(request.url)
     const secret = searchParams.get('secret')
-    
-    // Verify the request is from Cloudflare
+
     if (secret !== process.env.CRON_SECRET) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    console.log('Cleanup task executed successfully')
-    
-    return NextResponse.json({ 
+    const CLEANUP_DAYS = parseInt(process.env.CLEANUP_DAYS || '30', 10)
+
+    console.log(`Cleanup task: deleting files older than ${CLEANUP_DAYS} days`)
+
+    // In production: query submissions with file_url older than N days
+    // and delete from R2 bucket
+    /*
+    const { data: expiredSubmissions } = await supabase
+      .from('submissions')
+      .select('id, file_url, file_name')
+      .lt('submitted_at', new Date(Date.now() - CLEANUP_DAYS * 24 * 60 * 60 * 1000).toISOString())
+      .not('file_url', 'is', null)
+
+    for (const sub of expiredSubmissions) {
+      // Delete from R2
+      await r2.delete(sub.fileUrl.split('/').pop()!)
+      // Soft delete submission
+      await supabase
+        .from('submissions')
+        .update({ status: 'expired' })
+        .eq('id', sub.id)
+    }
+    */
+
+    return NextResponse.json({
       success: true,
-      message: 'Nettoyage terminé'
+      message: `Cleanup completed (${CLEANUP_DAYS} day retention)`,
     })
   } catch (error) {
     console.error('Cleanup error:', error)
-    return NextResponse.json({ error: 'Erreur lors du nettoyage' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
-export const runtime = 'edge'

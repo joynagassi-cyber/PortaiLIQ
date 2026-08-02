@@ -1,13 +1,11 @@
-import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { submissions } from '@/db/schema'
+import { NextResponse } from 'next/server'
 
-// Generate CSV from submissions data
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const portalId = searchParams.get('portalId')
-    
+
     if (!portalId) {
       return NextResponse.json(
         { error: 'portalId is required' },
@@ -16,7 +14,7 @@ export async function GET(request: Request) {
     }
 
     const supabase = await createClient()
-    
+
     // Verify user owns this portal
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
@@ -38,76 +36,87 @@ export async function GET(request: Request) {
     }
 
     // Fetch submissions with portal items
-    const { data: submissionsData, error: submissionsError } = await supabase
+    const { data: submissionsData, error: subError } = await supabase
       .from('submissions')
       .select(`
-        *,
-        portal_items!inner (
-          id,
-          title,
-          field_type,
-          required
-        )
+        id, content_text, file_url, file_name, file_type, status, submitted_at,
+        portal_item:portal_items(id, label, item_type)
       `)
-      .eq('portal_id', portalId)
-      .order('created_at', { ascending: true })
+      .eq('portal_item_id', portalId)
 
-    if (submissionsError) {
-      console.error('Submissions fetch error:', submissionsError)
+    // Alternative: fetch all submissions for portal items of this portal
+    const { data: portalItems } = await supabase
+      .from('portal_items')
+      .select('id, label')
+      .eq('portal_id', portalId)
+
+    const { data: allSubmissions, error: allSubError } = await supabase
+      .from('submissions')
+      .select(`
+        id, content_text, file_url, file_name, file_type, status, submitted_at,
+        portal_item_id, portal_item:portal_items(label, item_type)
+      `)
+      .in('portal_item_id', portalItems?.map((i: any) => i.id) || [])
+      .order('submitted_at', { ascending: true })
+
+    if (allSubError || !allSubmissions) {
       return NextResponse.json(
         { error: 'Failed to fetch submissions' },
         { status: 500 }
       )
     }
 
-    if (!submissionsData || submissionsData.length === 0) {
+    if (allSubmissions.length === 0) {
       return NextResponse.json(
         { error: 'No submissions found for this portal' },
         { status: 404 }
       )
     }
 
-    // Build CSV
+    // Build CSV headers
     const headers = [
-      'Soumission ID',
-      'Client',
-      'Email',
-      'Date',
-      'Statut',
-      ...submissionsData[0].portal_items.map((item: any) => item.title)
+      'Submission ID',
+      'Field',
+      'Type',
+      'Content',
+      'File URL',
+      'File Name',
+      'Status',
+      'Submitted At',
     ]
 
-    const rows = submissionsData.map((sub: any) => {
-      const row = [
-        sub.id,
-        sub.client_name || '',
-        sub.client_email || '',
-        new Date(sub.created_at).toISOString(),
-        sub.status,
-        ...(sub.answers || []).map((answer: any) => {
-          // Find the corresponding item title
-          const answerKey = Object.keys(answer)[0]
-          let cellValue = String(answer[answerKey] || '')
-          
-          // CSV injection protection: escape cells starting with formula characters
-          if (cellValue.match(/^[=\+\-@\t]/)) {
-            cellValue = "'" + cellValue
-          }
-          
-          return cellValue
-        })
-      ]
-      return row
-    })
+    // CSV injection protection
+    function protectCell(value: string): string {
+      if (/^[\=\+\-\@]/.test(value)) {
+        return "'" + value
+      }
+      return value
+    }
+
+    function escapeCsv(value: string): string {
+      if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return '"' + value.replace(/"/g, '""') + '"'
+      }
+      return value
+    }
+
+    const rows = allSubmissions.map((sub: any) => [
+      sub.id,
+      sub.portal_item?.label || '',
+      sub.portal_item?.item_type || '',
+      protectCell(escapeCsv(sub.content_text || '')),
+      escapeCsv(sub.file_url || ''),
+      escapeCsv(sub.file_name || ''),
+      sub.status || 'pending',
+      new Date(sub.submitted_at).toISOString(),
+    ])
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => 
-        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-      )
+      ...rows.map(row => row.join(',')),
     ].join('\n')
 
-    const fileName = `portail-${portalId.substring(0, 8)}-exports-${new Date().toISOString().split('T')[0]}.csv`
+    const fileName = `portal-${portalId.substring(0, 8)}-${new Date().toISOString().split('T')[0]}.csv`
 
     return new NextResponse(csvContent, {
       headers: {
@@ -116,7 +125,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error('CSV Export error:', error)
+    console.error('CSV export error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

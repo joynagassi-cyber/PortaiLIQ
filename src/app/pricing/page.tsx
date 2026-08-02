@@ -1,25 +1,11 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 
 const PLANS = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    description: 'Start with one portal and basic features.',
-    features: [
-      '1 active portal',
-      'Basic form fields',
-      'Manual reminders',
-      'Community support',
-    ],
-    cta: 'Get Started',
-    ctaLink: '/signup',
-    popular: false,
-  },
   {
     name: 'Starter',
     price: '$9',
@@ -32,9 +18,9 @@ const PLANS = [
       'Basic AI summaries',
       'Email support',
     ],
-    cta: 'Upgrade to Starter',
-    ctaLink: `https://gumroad.com/l/your-starter-product`,
-    popular: true,
+    cta: 'Get Started',
+    gumroadProductId: process.env.NEXT_PUBLIC_GUMROAD_STARTER_PRODUCT_ID || '#',
+    popular: false,
   },
   {
     name: 'Professional',
@@ -49,8 +35,8 @@ const PLANS = [
       'Analytics dashboard',
     ],
     cta: 'Upgrade to Professional',
-    ctaLink: `https://gumroad.com/l/your-professional-product`,
-    popular: false,
+    gumroadProductId: process.env.NEXT_PUBLIC_GUMROAD_PRO_PRODUCT_ID || '#',
+    popular: true,
   },
   {
     name: 'Agency',
@@ -66,57 +52,57 @@ const PLANS = [
       'Custom integrations',
     ],
     cta: 'Upgrade to Agency',
-    ctaLink: `https://gumroad.com/l/your-agency-product`,
+    gumroadProductId: process.env.NEXT_PUBLIC_GUMROAD_AGENCY_PRODUCT_ID || '#',
     popular: false,
   },
-];
+]
 
 export default function PricingPage() {
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading] = useState<string | null>(null)
 
-  const handleUpgrade = (planName: string, link: string) => {
-    if (planName === 'Free') return;
-    setLoading(planName);
+  const handleUpgrade = (planName: string, gumroadProductId: string) => {
+    if (planName === 'Free') return
+    setLoading(planName)
     // Open Gumroad checkout in new tab
-    window.open(link, '_blank');
-    setTimeout(() => setLoading(null), 1000);
-  };
+    window.open(`https://gumroad.com/l/${gumroadProductId}`, '_blank')
+    setTimeout(() => setLoading(null), 1000)
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-20 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted py-20 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-foreground">
             Simple, transparent pricing
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Choose the plan that fits your freelance business. Upgrade or downgrade anytime through your Gumroad receipt.
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Choose the plan that fits your freelance business. No free tier — start with Starter and upgrade anytime.
           </p>
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {PLANS.map((plan) => (
             <Card
               key={plan.name}
               className={`relative flex flex-col ${
                 plan.popular
-                  ? 'border-blue-500 border-2 shadow-lg scale-105'
-                  : 'border-gray-200'
+                  ? 'border-primary border-2 shadow-sm scale-[1.02]'
+                  : 'border-border'
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                  Most Popular
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Badge className="bg-primary text-primary-foreground">Most Popular</Badge>
                 </div>
               )}
 
               <CardHeader>
                 <CardTitle className="text-xl">{plan.name}</CardTitle>
-                <div className="mt-2">
-                  <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
-                  <span className="text-gray-500 ml-1">{plan.period}</span>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                  <span className="text-muted-foreground">{plan.period}</span>
                 </div>
                 <CardDescription className="mt-2">{plan.description}</CardDescription>
               </CardHeader>
@@ -124,12 +110,14 @@ export default function PricingPage() {
               <CardContent className="flex-1">
                 <ul className="space-y-3">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2 text-sm text-gray-700">
+                    <li key={feature} className="flex items-start gap-2 text-sm text-foreground">
                       <svg
-                        className="w-5 h-5 text-green-500 shrink-0"
+                        className="w-5 h-5 text-primary shrink-0 mt-0.5"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        focusable="false"
                       >
                         <path
                           strokeLinecap="round"
@@ -148,7 +136,7 @@ export default function PricingPage() {
                 <Button
                   className="w-full"
                   variant={plan.popular ? 'default' : 'outline'}
-                  onClick={() => handleUpgrade(plan.name, plan.ctaLink)}
+                  onClick={() => handleUpgrade(plan.name, plan.gumroadProductId)}
                   disabled={loading === plan.name}
                 >
                   {loading === plan.name ? 'Opening...' : plan.cta}
@@ -160,40 +148,40 @@ export default function PricingPage() {
 
         {/* FAQ Section */}
         <div className="mt-20 max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
+          <h2 className="text-2xl font-bold text-foreground mb-8 text-center">
             Frequently Asked Questions
           </h2>
           <div className="space-y-6">
             <div>
-              <h3 className="font-semibold text-gray-900">How does payment work?</h3>
-              <p className="text-gray-600 mt-1">
-                We use Gumroad for payments. Click any upgrade button to purchase through Gumroad&apos;s secure checkout.
-                After purchase, you&apos;ll receive a license key via email that activates your plan instantly.
+              <h3 className="font-semibold text-foreground">How does payment work?</h3>
+              <p className="text-muted-foreground mt-1">
+                We use Gumroad for secure checkout. Click any plan to purchase through Gumroad&apos;s
+                payment system. After purchase, your plan activates immediately.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Can I switch plans later?</h3>
-              <p className="text-gray-600 mt-1">
-                Yes! Purchase a different product on Gumroad and your plan will update automatically.
+              <h3 className="font-semibold text-foreground">Can I switch plans later?</h3>
+              <p className="text-muted-foreground mt-1">
+                Yes! Purchase a different plan on Gumroad and your tier updates automatically.
                 No prorated charges — your new tier takes effect immediately.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Is there a free trial?</h3>
-              <p className="text-gray-600 mt-1">
-                The Free plan is永久 available. No credit card required. Upgrade only when you&apos;re ready.
+              <h3 className="font-semibold text-foreground">Is there a free trial?</h3>
+              <p className="text-muted-foreground mt-1">
+                No. All plans are paid. Start with Starter ($9/mo) and upgrade as you grow.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">What happens if I don&apos;t renew?</h3>
-              <p className="text-gray-600 mt-1">
-                Your account reverts to the Free plan. Existing portals remain accessible but new portal creation
-                is limited to 1.
+              <h3 className="font-semibold text-foreground">What happens if I cancel?</h3>
+              <p className="text-muted-foreground mt-1">
+                Your account remains active until the end of your billing period.
+                Portals and data are preserved indefinitely.
               </p>
             </div>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }

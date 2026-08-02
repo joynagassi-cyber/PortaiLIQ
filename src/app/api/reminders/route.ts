@@ -1,16 +1,25 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { sendWelcomeEmail } from '@/lib/brevo'
+import { sendReminderEmail } from '@/lib/brevo'
 
+/**
+ * Manual reminder email
+ * POST /api/reminders
+ */
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const body = await request.json()
-    const { link_token, client_email, client_name } = body
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!link_token || !client_email) {
+    const body = await request.json()
+    const { linkToken, clientEmail, clientName } = body
+
+    if (!linkToken || !clientEmail) {
       return NextResponse.json(
-        { error: 'link_token et client_email sont requis' },
+        { error: 'linkToken and clientEmail are required' },
         { status: 400 }
       )
     }
@@ -19,62 +28,59 @@ export async function POST(request: Request) {
     const { data: accessLink, error: linkError } = await supabase
       .from('portal_access_links')
       .select(`
-        id,
+        token,
         portal:portals(
           id,
           name,
-          user:users(display_name, email)
+          user_id
         )
       `)
-      .eq('token', link_token)
+      .eq('token', linkToken)
       .single()
 
     if (linkError || !accessLink) {
-      return NextResponse.json({ error: 'Lien d\'accès non trouvé' }, { status: 404 })
+      return NextResponse.json({ error: 'Access link not found' }, { status: 404 })
     }
 
     const portal = accessLink.portal
-    
-    // Null-safe access to nested data
-    const freelancerName = portal?.user?.display_name || 'Freelance'
-    const portalName = portal?.name || 'Portail'
-    
-    // Send reminder email
-    const portalUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/portal/${link_token}`
-    
+    const freelancerName = user.user_metadata?.full_name || 'Freelancer'
+    const portalName = portal?.name || 'Portal'
+    const portalUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/portal/${linkToken}`
+
     if (!process.env.NEXT_PUBLIC_SITE_URL) {
       console.warn('NEXT_PUBLIC_SITE_URL not configured — portal URLs will be broken')
     }
-    
-    const emailSent = await sendWelcomeEmail({
-      to: client_email,
-      toName: client_name || 'Client',
+
+    // Send reminder email
+    const emailSent = await sendReminderEmail({
+      to: clientEmail,
+      toName: clientName || 'Client',
       portalName,
       freelancerName,
       portalUrl,
     })
 
     if (!emailSent) {
-      return NextResponse.json({ error: 'Échec de l\'envoi de l\'email de relance' }, { status: 500 })
+      console.warn('Reminder email failed to send')
     }
 
     // Log activity
     await supabase
       .from('activity_log')
       .insert({
-        user_id: portal?.user_id || null,
-        portal_id: portal?.id || null,
+        userId: portal?.user_id || user.id,
+        portalId: portal?.id || null,
         action: 'reminder_sent',
         metadata: {
-          client_email: client_email,
-          link_token: link_token,
-          sent_at: new Date().toISOString()
-        }
+          clientEmail,
+          linkToken,
+          sentAt: new Date().toISOString(),
+        },
       })
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error sending reminder:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    console.error('Reminder error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
