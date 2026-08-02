@@ -8,9 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
-import { Loader2, CheckCircle, AlertCircle, Upload, X } from 'lucide-react'
+import { Loader2, CheckCircle, X } from 'lucide-react'
 
 interface Item {
   id: string
@@ -346,7 +345,7 @@ export default function PortalPage() {
                             variant="ghost"
                             size="sm"
                             aria-label="Remove file"
-                            className="h-8 w-8 p-0 text-green-600 hover:text-red-600"
+                            className="w-8 p-0 text-green-600 hover:text-red-600"
                             onClick={() => handleInputChange(item.id, null)}
                           >
                             <X className="h-3 w-3" aria-hidden="true" />

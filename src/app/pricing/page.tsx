@@ -61,7 +61,6 @@ export default function PricingPage() {
   const [loading, setLoading] = useState<string | null>(null)
 
   const handleUpgrade = (planName: string, gumroadProductId: string) => {
-    if (planName === 'Free') return
     setLoading(planName)
     // Open Gumroad checkout in new tab
     window.open(`https://gumroad.com/l/${gumroadProductId}`, '_blank')
@@ -117,7 +116,6 @@ export default function PricingPage() {
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                         aria-hidden="true"
-                        focusable="false"
                       >
                         <path
                           strokeLinecap="round"
